@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npx prisma *)",
+      "Bash(npx nest *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(break)",
+      "Bash(echo \"started with PID $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/thematic-areas -H \"Authorization: Bearer invalid\")",
+      "Bash(curl -s http://localhost:3000/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"aluno@hubtcc.dev\",\"password\":\"123456\"}')",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 23004)",
+      "Bash(powershell -Command \"Start-Process 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe'\")",
+      "Bash(sleep 5; cat /tmp/backend.log 2>&1; echo \"---\"; netstat -ano | grep \":3000\" | grep LISTENING)",
+      "Bash(taskkill //F //PID 20892)"
+    ]
+  }
+}

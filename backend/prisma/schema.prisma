@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADVISOR
+  EVALUATOR
+  COORDINATION
+}
+
+enum TccStatus {
+  DRAFT
+  SUBMITTED
+  ADVISOR_REVIEW
+  SENT_TO_EVALUATION
+  CORRECTIONS_REQUESTED
+  RESUBMITTED
+  ADVISOR_FINAL_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum EvaluationVerdict {
+  PENDING
+  APPROVED
+  CORRECTIONS_REQUESTED
+}
+
+enum PeriodType {
+  SUBMISSION
+  EVALUATION
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  googleId     String?  @unique
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tccsAsStudent Tcc[]          @relation("StudentTccs")
+  tccsAsAdvisor Tcc[]          @relation("AdvisorTccs")
+  evaluations   TccEvaluator[]
+  statusChanges TccStatusHistory[]
+
+  @@map("users")
+}
+
+model Tcc {
+  id                String    @id @default(cuid())
+  title             String
+  abstract          String    @db.Text
+  status            TccStatus @default(DRAFT)
+  publishable       Boolean   @default(false)
+  projectGrade      Float?
+  presentationGrade Float?
+  documentUrl       String?
+  documentVersion   Int       @default(0)
+
+  studentId String
+  student   User   @relation("StudentTccs", fields: [studentId], references: [id])
+
+  advisorId String?
+  advisor   User?   @relation("AdvisorTccs", fields: [advisorId], references: [id])
+
+  thematicAreas TccThematicArea[]
+  keywords      TccKeyword[]
+  evaluators    TccEvaluator[]
+  statusHistory TccStatusHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tccs")
+}
+
+model ThematicArea {
+  id   String @id @default(cuid())
+  name String @unique
+
+  tccs TccThematicArea[]
+
+  @@map("thematic_areas")
+}
+
+model TccThematicArea {
+  tccId          String
+  tcc            Tcc          @relation(fields: [tccId], references: [id], onDelete: Cascade)
+  thematicAreaId String
+  thematicArea   ThematicArea @relation(fields: [thematicAreaId], references: [id], onDelete: Cascade)
+
+  @@id([tccId, thematicAreaId])
+  @@map("tcc_thematic_areas")
+}
+
+model Keyword {
+  id   String @id @default(cuid())
+  name String @unique
+
+  tccs TccKeyword[]
+
+  @@map("keywords")
+}
+
+model TccKeyword {
+  tccId     String
+  tcc       Tcc     @relation(fields: [tccId], references: [id], onDelete: Cascade)
+  keywordId String
+  keyword   Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@id([tccId, keywordId])
+  @@map("tcc_keywords")
+}
+
+model TccEvaluator {
+  id        String            @id @default(cuid())
+  tccId     String
+  tcc       Tcc               @relation(fields: [tccId], references: [id], onDelete: Cascade)
+  evaluatorId String
+  evaluator User              @relation(fields: [evaluatorId], references: [id])
+  verdict   EvaluationVerdict @default(PENDING)
+  comment   String?           @db.Text
+  updatedAt DateTime          @updatedAt
+
+  @@unique([tccId, evaluatorId])
+  @@map("tcc_evaluators")
+}
+
+model SubmissionPeriod {
+  id        String     @id @default(cuid())
+  type      PeriodType
+  label     String
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime   @default(now())
+
+  @@map("submission_periods")
+}
+
+model TccStatusHistory {
+  id          String    @id @default(cuid())
+  tccId       String
+  tcc         Tcc       @relation(fields: [tccId], references: [id], onDelete: Cascade)
+  fromStatus  TccStatus?
+  toStatus    TccStatus
+  comment     String?   @db.Text
+  changedById String?
+  changedBy   User?     @relation(fields: [changedById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@map("tcc_status_history")
+}

@@ -1,0 +1,388 @@
+:root {
+  --bg: #f5f6fa;
+  --card: #ffffff;
+  --text: #1f2430;
+  --muted: #6b7280;
+  --primary: #2f5df5;
+  --primary-dark: #1e40c4;
+  --border: #e2e5ec;
+  --success: #17853b;
+  --warning: #b45309;
+  --danger: #c0362c;
+  --accent-gold: #d4a941;
+  --brand-deep: #1b2559;
+  --brand-mid: #2f5df5;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--primary);
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--primary-dark);
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: var(--primary);
+  color: white;
+}
+
+button:hover {
+  background: var(--primary-dark);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #eef1fb;
+  color: var(--primary-dark);
+}
+
+.status-APPROVED {
+  background: #e4f6ea;
+  color: var(--success);
+}
+
+.status-REJECTED,
+.status-CORRECTIONS_REQUESTED {
+  background: #fdecea;
+  color: var(--danger);
+}
+
+.status-SENT_TO_EVALUATION,
+.status-ADVISOR_FINAL_REVIEW,
+.status-SUBMITTED,
+.status-RESUBMITTED {
+  background: #fff4e0;
+  color: var(--warning);
+}
+
+.tcc-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+}
+
+.tcc-list-item:last-child {
+  border-bottom: none;
+}
+
+.tcc-list-item h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+}
+
+.tcc-list-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+/* ---- Login split-screen ---- */
+.login-split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+}
+
+.login-brand {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---- Painel do switch 3D (porte do demo webgl-switch do react-spring) ---- */
+.switch-demo-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  perspective: 1800px;
+  perspective-origin: 50% 50%;
+}
+
+.switch-demo-container h1 {
+  display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate3d(-50%, -50%, 0) rotate3d(1, 0, 0, 55deg) rotate3d(0, 0, 1, 45deg);
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 800;
+  margin: 0;
+  font-size: 290px;
+  letter-spacing: -19px;
+  color: inherit;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.switch-demo-open,
+.switch-demo-close {
+  font-size: 125px !important;
+  letter-spacing: -1px !important;
+}
+
+.switch-demo-open {
+  margin-top: -140px !important;
+}
+
+.switch-demo-close {
+  margin-top: 145px !important;
+}
+
+/* Camadas fixas, sempre por cima do canvas (não giram, não ficam atrás da
+   esfera) — nome do sistema no topo, status embaixo. */
+.switch-demo-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 2rem 2.25rem;
+  color: #14151a;
+  pointer-events: none;
+}
+
+.switch-demo-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.01em;
+}
+
+.switch-demo-mark svg {
+  flex-shrink: 0;
+}
+
+.switch-demo-sub {
+  margin: 0.6rem 0 0 0;
+  max-width: 22rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: rgba(20, 21, 26, 0.75);
+}
+
+.switch-demo-bottom-status {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 2rem 2.25rem;
+  color: #14151a;
+  pointer-events: none;
+}
+
+.switch-demo-bottom-status > span {
+  display: block;
+  font-weight: 800;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+.switch-demo-foot {
+  margin: 0.35rem 0 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(20, 21, 26, 0.7);
+}
+
+.switch-demo-container canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.login-form-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg);
+}
+
+.login-form-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-form-card h2 {
+  margin-bottom: 0.25rem;
+}
+
+.login-form-subtitle {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.75rem 0;
+}
+
+@media (max-width: 860px) {
+  .login-split {
+    grid-template-columns: 1fr;
+  }
+  .login-brand {
+    display: none;
+  }
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.nav-tabs a {
+  padding: 0.6rem 0.2rem;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-tabs a.active {
+  color: var(--primary);
+  border-color: var(--primary);
+}

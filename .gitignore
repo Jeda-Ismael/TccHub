@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+*.tsbuildinfo
+
+# leftovers from a CodeSandbox demo extracted into the project root — not part of hubtcc
+/package.json
+/package-lock.json
+/tsconfig.json
+/src/
+/public/
+/thumbnail.png
+*.zip
