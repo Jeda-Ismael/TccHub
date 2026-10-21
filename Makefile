@@ -8,7 +8,7 @@ COMPOSER    = $(PHP_CONT) composer
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps sh composer console \
-        db-create db-reset migration migrate \
+        db-create db-reset fixtures migration migrate \
         test-db test coverage phpstan cs cs-fix qa
 
 help: ## Lista os comandos disponíveis
@@ -46,10 +46,14 @@ console: ## Roda o bin/console. Ex.: make console c='debug:router'
 db-create: ## Cria o banco (se não existir)
 	@$(CONSOLE) doctrine:database:create --if-not-exists
 
-db-reset: ## Recria o banco do zero e roda as migrations
-	@$(CONSOLE) doctrine:database:drop --force --if-exists
-	@$(CONSOLE) doctrine:database:create
+db-reset: ## Recria o banco do zero, roda as migrations e carrega as fixtures
+	@# Apaga as tabelas em vez do banco: a API mantém conexões abertas e o Postgres não deixa dropar
+	@$(CONSOLE) doctrine:schema:drop --full-database --force
 	@$(CONSOLE) doctrine:migrations:migrate --no-interaction --allow-no-migration
+	@$(CONSOLE) doctrine:fixtures:load --no-interaction
+
+fixtures: ## Recarrega as fixtures (apaga os dados atuais)
+	@$(CONSOLE) doctrine:fixtures:load --no-interaction
 
 migration: ## Gera uma migration a partir das entidades
 	@$(CONSOLE) make:migration
