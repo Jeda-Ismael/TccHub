@@ -11,3 +11,6 @@ dist/
 /public/
 /thumbnail.png
 *.zip
+
+# O .env do Symfony só tem valores padrão de desenvolvimento e deve ser versionado
+!/api/.env

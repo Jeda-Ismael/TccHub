@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API (Symfony)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build da imagem
+        uses: docker/bake-action@v6
+        with:
+          source: .
+          pull: true
+          load: true
+          files: |
+            compose.yaml
+            compose.override.yaml
+          targets: php
+          set: |
+            *.cache-from=type=gha,scope=php
+            *.cache-to=type=gha,scope=php,mode=max
+
+      - name: Sobe a API e o banco
+        run: docker compose up php database --wait --no-build
+
+      - name: Health check
+        # -k: certificado local autoassinado do Caddy
+        run: curl -fsSk https://localhost/api/health
+
+      - name: Estilo (PHP-CS-Fixer)
+        run: make cs
+
+      - name: Análise estática (PHPStan)
+        run: make phpstan
+
+      - name: Testes
+        run: make test
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose logs

@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Versão 2 · 2026-10
+> Status: decisões fechadas · Fase 0 concluída · Versão 3 · 2026-10
 
 ---
 
@@ -57,7 +57,7 @@ flowchart LR
 
 | # | Decisão | Alternativa descartada | Motivo |
 |---|---------|------------------------|--------|
-| T1 | Symfony 7.4 LTS + PHP 8.4 | Symfony 8.0 | Suporte longo, cobre todo o ciclo do TCC |
+| T1 | Symfony 7.4 LTS · imagem com PHP 8.5, código compatível com PHP ≥ 8.3 | Symfony 8.x | Suporte longo, cobre todo o ciclo do TCC |
 | T2 | FrankenPHP (base `dunglas/symfony-docker`) | Nginx + PHP-FPM | 1 container, HTTPS local automático, template oficial |
 | T3 | Controllers próprios + Serializer | API Platform | Preserva o contrato usado pelo frontend |
 | T4 | Doctrine ORM + Migrations | — | Padrão do ecossistema |
@@ -79,7 +79,7 @@ flowchart LR
 | Serviço | Imagem | Porta | Função |
 |---------|--------|-------|--------|
 | `php` | build `api/Dockerfile` (FrankenPHP) | 443 / 80 | API Symfony + Caddy |
-| `worker` | mesma imagem do `php` | — | `messenger:consume async`: e-mails e notificações |
+| `worker` | mesma imagem do `php` | — | `messenger:consume async`: e-mails e notificações *(entra na Fase 6)* |
 | `database` | `postgres:16-alpine` | 5432 | Banco de dados (e fila do Messenger) |
 | `web` | `node:22-alpine` | 5173 | Vite dev server do React, com hot reload |
 | `mailer` | `axllent/mailpit` | 8025 | Caixa de e-mails de teste |
@@ -88,9 +88,9 @@ flowchart LR
 ### 3.2 Arquivos
 
 ```
-compose.yaml            # php, worker, database, web, mailer
-compose.override.yaml   # bind mounts do código, Xdebug, portas
-                        # (adminer no profile "tools")
+compose.yaml            # php, database (e worker a partir da Fase 6)
+compose.override.yaml   # dev: build, bind mounts, Xdebug, portas,
+                        # web, mailer e adminer (profile "tools")
 ```
 
 Como o deploy é só local, não há `compose.prod.yaml`. O Dockerfile já tem um *target* `prod`, então criar um depois é trivial.
@@ -107,7 +107,7 @@ Como o deploy é só local, não há `compose.prod.yaml`. O Dockerfile já tem u
 ### 3.4 Dockerfile (`api/Dockerfile`)
 
 ```
-frankenphp_base → PHP 8.4 + pdo_pgsql, intl, opcache, zip, apcu
+frankenphp_base → PHP 8.5 + pdo_pgsql, intl, opcache, zip, apcu
 frankenphp_dev  → + Xdebug/PCOV, composer
 frankenphp_prod → composer --no-dev, cache warmup (pronto para o futuro)
 ```
@@ -156,10 +156,10 @@ hubtcc/
 │   │   └── DataFixtures/{Base,Demo}/
 │   ├── templates/email/
 │   ├── tests/{Unit,Integration,Functional}/
+│   ├── frankenphp/              # Caddyfile, php.ini, entrypoint
 │   └── Dockerfile
 ├── web/                          # React (ex-frontend/)
 ├── backend/                      # NestJS — removido na fase final
-├── docker/                       # Caddyfile, php.ini, entrypoint
 ├── docs/
 ├── compose.yaml
 ├── compose.override.yaml
@@ -568,13 +568,13 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 
 | Fase | Entrega | Pronto quando |
 |------|---------|---------------|
-| 0 · Infra | Compose, Dockerfile, Makefile, Symfony vazio, PHPStan/CS/PHPUnit, CI | `make up` sobe tudo; `make qa` verde |
-| 1 · Dados | Entidades, enums, migrations, fixtures base | `make db-reset` cria banco com 1 usuário por papel + 1 professor com 3 papéis |
+| 0 · Infra ✅ | Compose, Dockerfile, Makefile, Symfony + `GET /api/health`, PHPStan/CS/PHPUnit, CI | `make up` sobe tudo; `make qa` verde |
+| 1 · Dados | Entidades, enums, migrations, fixtures base (Foundry + dama/doctrine-test-bundle) | `make db-reset` cria banco com 1 usuário por papel + 1 professor com 3 papéis |
 | 2 · Auth e papéis | Login, registro, refresh, `/me`, gestão de papéis, voters base | Login e troca de papel funcionam no frontend |
 | 3 · Cadastros | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
 | 4 · TCC até a banca | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `ADVISOR_FINAL_REVIEW` pelo frontend |
 | 5 · Defesa | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação |
-| 6 · Notificações | Fila, e-mails, sininho, lembrete agendado | E-mails no Mailpit; contador no frontend |
+| 6 · Notificações | Serviço `worker`, fila, e-mails, sininho, lembrete agendado | E-mails no Mailpit; contador no frontend |
 | 7 · Repositório | Autorização, publicação, busca full-text, download | Busca por palavra-chave retorna TCCs publicados |
 | 8 · Corte | `make demo`, remover NestJS, `frontend/` → `web/`, README | Repositório só com Symfony; cobertura ≥ 85% |
 
@@ -584,9 +584,34 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 
 ## 15. Backlog (fora do escopo)
 
+**Ideias vindas de projetos de referência** (§16), em ordem sugerida:
+
+1. **Ata de defesa em PDF.** Gerada automaticamente quando a defesa fecha, com banca, notas, média, resultado e data. Fica anexada ao TCC e disponível para aluno, orientador e coordenação. *Como:* template Twig → PDF (Dompdf ou Gotenberg). Evolução: assinatura digital dos membros da banca (inspirado no gestao-tccs, IFPE).
+2. **Registro de reuniões de orientação.** O orientador registra data, assunto e encaminhamentos, e o aluno confirma. Gera um histórico de acompanhamento útil para comprovar a orientação. *Modelo:* `advising_meetings (tcc_id, held_at, topic, notes, next_steps, confirmed_by_student_at)` (inspirado no gtcc e no SIGA-TCC).
+3. **Etapas com cronograma.** A coordenação define marcos por período (ex.: projeto, qualificação, versão final) com prazos, e o aluno entrega o PDF em cada etapa, com o orientador dando parecer. *Modelo:* `milestones (period_id, name, due_date, order)` + `milestone_submissions`. Afeta o workflow: as etapas viram pré-requisito do `submit` final (inspirado no gtcc e no ls1intum).
+
+**Outros**
+
+
 - Login com Google
 - Recuperação de senha / verificação de e-mail
 - Compose de produção e deploy em VPS
 - Notificações em tempo real via Mercure
 - Armazenamento em S3/MinIO
 - Revisão do painel 3D (`three.js`) do frontend
+
+---
+
+## 16. Projetos de referência
+
+| Projeto | Licença | Uso no hubtcc |
+|---------|---------|---------------|
+| [dunglas/symfony-docker](https://github.com/dunglas/symfony-docker) | MIT | **Base da infraestrutura** (Dockerfile, Caddyfile, entrypoint) |
+| [danilovl/final-work-system](https://github.com/danilovl/final-work-system) | MIT | Referência de código Symfony no mesmo domínio (voters, versões de arquivo, notificações) |
+| [ls1intum/thesis-management](https://github.com/ls1intum/thesis-management) | MIT | Matriz de permissões, fluxogramas, compose de demonstração |
+| [ifpebj-ti/gestao-tccs](https://github.com/ifpebj-ti/gestao-tccs) | Apache-2.0 | Agendamento de defesa, assinatura de documentos (contexto brasileiro) |
+| [Jefferson08/gtcc](https://github.com/Jefferson08/gtcc) | sem licença | **Só ideias** (etapas, sessões de orientação) — não copiar código |
+| [arielm11/SIGA-TCC](https://github.com/arielm11/SIGA-TCC) | — | Atas de reunião de orientação |
+| [pcalvesUSP/deposito-tcc](https://github.com/pcalvesUSP/deposito-tcc) | — | Inspiração original do fluxo de negócio |
+
+Código de terceiros só é reaproveitado de projetos MIT/Apache, mantendo o aviso de autoria.

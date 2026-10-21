@@ -1,0 +1,63 @@
+# Ambiente de desenvolvimento (carregado automaticamente pelo `docker compose`)
+services:
+  php:
+    build:
+      context: ./api
+      target: frankenphp_dev
+    volumes:
+      - ./api:/app
+      - ./api/frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
+      - ./api/frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+      # Mantém var/ fora do bind mount (I/O mais rápido no Mac/Windows)
+      - /app/var
+    environment:
+      FRANKENPHP_WORKER_CONFIG: watch
+      FRANKENPHP_SITE_CONFIG: hot_reload
+      # https://xdebug.org/docs/all_settings#mode
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+      APP_ENV: "${APP_ENV:-dev}"
+    extra_hosts:
+      # Garante que host.docker.internal exista no Linux (Xdebug)
+      - host.docker.internal:host-gateway
+    tty: true
+
+  database:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+    environment:
+      # O frontend chama /api no próprio Vite, que repassa para o container php
+      VITE_API_URL: /api
+      API_PROXY_TARGET: http://php
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    depends_on:
+      - php
+
+  mailer:
+    image: axllent/mailpit
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  adminer:
+    image: adminer
+    profiles: [tools]
+    environment:
+      ADMINER_DEFAULT_SERVER: database
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    depends_on:
+      - database
+
+volumes:
+  web_node_modules:
