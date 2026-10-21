@@ -8,6 +8,9 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 
 	php bin/console -V
 
+	# Chaves do JWT (ficam fora do git); geradas só na primeira subida
+	php bin/console lexik:jwt:generate-keypair --skip-if-exists
+
 	if grep -q ^DATABASE_URL= .env; then
 		echo 'Aguardando o banco de dados...'
 		ATTEMPTS_LEFT_TO_REACH_DATABASE=60

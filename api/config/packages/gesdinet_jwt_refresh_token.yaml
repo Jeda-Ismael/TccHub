@@ -1,0 +1,16 @@
+# Refresh token: fica num cookie httpOnly (o JavaScript não lê), vale 7 dias
+# e é trocado a cada uso. Ver docs/ARQUITETURA.md §10.
+gesdinet_jwt_refresh_token:
+    refresh_token_class: App\Entity\RefreshToken
+    ttl: 604800
+    single_use: true
+    hash_tokens:
+        enabled: true
+        accept_stored_in_the_clear: false
+    cookie:
+        enabled: true
+        same_site: lax
+        path: /api/auth
+        http_only: true
+        secure: true
+        remove_token_from_body: true
