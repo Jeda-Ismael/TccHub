@@ -16,6 +16,10 @@ services:
       # https://xdebug.org/docs/all_settings#mode
       XDEBUG_MODE: "${XDEBUG_MODE:-off}"
       APP_ENV: "${APP_ENV:-dev}"
+    healthcheck:
+      # Na primeira subida o entrypoint roda `composer install`, que pode
+      # levar vários minutos numa pasta do Windows
+      start_period: 10m
     extra_hosts:
       # Garante que host.docker.internal exista no Linux (Xdebug)
       - host.docker.internal:host-gateway
