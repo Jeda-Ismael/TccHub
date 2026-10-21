@@ -1,11 +1,11 @@
+import { ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider, useAuth } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
-import { OAuthCallback } from './pages/auth/OAuthCallback';
 import { Dashboard } from './pages/Dashboard';
 import { StudentHome } from './pages/student/StudentHome';
 import { AdvisorHome } from './pages/advisor/AdvisorHome';
@@ -21,15 +21,24 @@ import { Periods } from './pages/coordination/Periods';
 
 const queryClient = new QueryClient();
 
+/** Enquanto a sessão é restaurada pelo cookie, não mostra nada que dependa do login. */
+function SessionGate({ children }: { children: ReactNode }) {
+  const { status } = useAuth();
+  if (status === 'loading') {
+    return <div className="auth-loading">Carregando...</div>;
+  }
+  return <>{children}</>;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <SessionGate>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/oauth-callback" element={<OAuthCallback />} />
 
             <Route element={<Layout />}>
               <Route element={<ProtectedRoute />}>
@@ -61,6 +70,7 @@ export function App() {
               </Route>
             </Route>
           </Routes>
+          </SessionGate>
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

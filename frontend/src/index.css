@@ -191,168 +191,199 @@ button:disabled {
   font-size: 0.85rem;
 }
 
-.auth-page {
+/* ---- Login e cadastro: cartão cinza flutuando no centro ---- */
+.auth-screen {
+  --auth-bg: #1c1d21;
+  --auth-card: #2a2b31;
+  --auth-field: #212227;
+  --auth-border: rgba(255, 255, 255, 0.08);
+  --auth-text: #ffffff;
+  --auth-muted: #a7a9b2;
+  --auth-error: #ff8a80;
+
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1.5rem 1rem;
+  background: radial-gradient(ellipse at top, #26272c 0%, var(--auth-bg) 60%);
+  color: var(--auth-text);
 }
 
 .auth-card {
   width: 100%;
   max-width: 380px;
+  padding: 2.5rem 2rem 2rem;
+  background: var(--auth-card);
+  border: 1px solid var(--auth-border);
+  border-radius: 18px;
+  box-shadow:
+    0 30px 60px -12px rgba(0, 0, 0, 0.55),
+    0 18px 36px -18px rgba(0, 0, 0, 0.6);
+  animation: auth-float-in 0.5s ease-out both;
 }
 
-/* ---- Login split-screen ---- */
-.login-split {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+@keyframes auth-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 
-.login-brand {
-  position: relative;
-  overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+  .auth-card {
+    animation: none;
+  }
 }
 
-/* ---- Painel do switch 3D (porte do demo webgl-switch do react-spring) ---- */
-.switch-demo-container {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  perspective: 1800px;
-  perspective-origin: 50% 50%;
-}
-
-.switch-demo-container h1 {
-  display: inline-block;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate3d(-50%, -50%, 0) rotate3d(1, 0, 0, 55deg) rotate3d(0, 0, 1, 45deg);
-  font-family: 'Segoe UI', sans-serif;
-  font-weight: 800;
-  margin: 0;
-  font-size: 290px;
-  letter-spacing: -19px;
-  color: inherit;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.switch-demo-open,
-.switch-demo-close {
-  font-size: 125px !important;
-  letter-spacing: -1px !important;
-}
-
-.switch-demo-open {
-  margin-top: -140px !important;
-}
-
-.switch-demo-close {
-  margin-top: 145px !important;
-}
-
-/* Camadas fixas, sempre por cima do canvas (não giram, não ficam atrás da
-   esfera) — nome do sistema no topo, status embaixo. */
-.switch-demo-topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  padding: 2rem 2.25rem;
-  color: #14151a;
-  pointer-events: none;
-}
-
-.switch-demo-mark {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-weight: 800;
-  font-size: 1.25rem;
-  letter-spacing: 0.01em;
-}
-
-.switch-demo-mark svg {
-  flex-shrink: 0;
-}
-
-.switch-demo-sub {
-  margin: 0.6rem 0 0 0;
-  max-width: 22rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  font-weight: 600;
-  color: rgba(20, 21, 26, 0.75);
-}
-
-.switch-demo-bottom-status {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  padding: 2rem 2.25rem;
-  color: #14151a;
-  pointer-events: none;
-}
-
-.switch-demo-bottom-status > span {
-  display: block;
-  font-weight: 800;
-  font-size: 2.5rem;
-  letter-spacing: -0.02em;
-}
-
-.switch-demo-foot {
-  margin: 0.35rem 0 0 0;
+.auth-brand {
+  margin: 0 0 1.75rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(20, 21, 26, 0.7);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--auth-muted);
 }
 
-.switch-demo-container canvas {
-  position: absolute;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
+.auth-card h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.6rem;
+  font-weight: 600;
 }
 
-.login-form-side {
+.auth-subtitle {
+  margin: 0 0 1.75rem;
+  font-size: 0.9rem;
+  color: var(--auth-muted);
+}
+
+.auth-card label {
+  color: var(--auth-muted);
+}
+
+.auth-card input {
+  background: var(--auth-field);
+  border: 1px solid var(--auth-border);
+  color: var(--auth-text);
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+}
+
+.auth-card input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1c1d21;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: #e8e9ec;
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.auth-submit:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.auth-error {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--auth-error);
+}
+
+.auth-footer {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--auth-muted);
+}
+
+.auth-footer a {
+  color: var(--auth-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Tela de carregamento enquanto a sessão é restaurada */
+.auth-loading {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
-  background: var(--bg);
-}
-
-.login-form-card {
-  width: 100%;
-  max-width: 380px;
-}
-
-.login-form-card h2 {
-  margin-bottom: 0.25rem;
-}
-
-.login-form-subtitle {
-  color: var(--muted);
+  background: #1c1d21;
+  color: #a7a9b2;
   font-size: 0.9rem;
-  margin: 0 0 1.75rem 0;
 }
 
-@media (max-width: 860px) {
-  .login-split {
-    grid-template-columns: 1fr;
-  }
-  .login-brand {
-    display: none;
-  }
+/* ---- Seletor de papel na barra superior ---- */
+.role-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.role-switcher select {
+  width: auto;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.role-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.role-chip {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.role-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+}
+
+.role-checkboxes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.role-checkboxes input {
+  width: auto;
 }
 
 .error-text {

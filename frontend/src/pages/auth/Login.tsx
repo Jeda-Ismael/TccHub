@@ -1,71 +1,65 @@
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../../api/client';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { apiErrorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
-import { WebGLSwitchPanel } from '../../components/WebGLSwitchPanel';
+import { AuthCard } from './AuthCard';
 
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { status, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
+
+  if (status === 'authenticated') return <Navigate to={from} replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { email, password });
-      login(data.accessToken);
-      navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível entrar');
+      await login(email, password);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível entrar. Tente novamente.'));
     } finally {
       setLoading(false);
     }
   }
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
   return (
-    <div className="login-split">
-      <aside className="login-brand">
-        <WebGLSwitchPanel />
-      </aside>
-
-      <div className="login-form-side">
-        <div className="card login-form-card">
-          <h2>Entrar</h2>
-          <p className="login-form-subtitle">Acesse com sua conta institucional.</p>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label>Senha</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            {error && <p className="error-text">{error}</p>}
-            <button type="submit" disabled={loading} style={{ width: '100%' }}>
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </form>
-          <div style={{ margin: '1rem 0', textAlign: 'center' }} className="muted">
-            ou
-          </div>
-          <a href={`${apiUrl}/auth/google`}>
-            <button type="button" className="secondary" style={{ width: '100%' }}>
-              Entrar com Google
-            </button>
-          </a>
-          <p className="muted" style={{ marginTop: '1rem' }}>
-            Não tem conta? <Link to="/register">Cadastre-se</Link>
-          </p>
+    <AuthCard title="Entrar" subtitle="Acesse sua conta para acompanhar os TCCs.">
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="login-email">E-mail</label>
+          <input id="login-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </div>
-      </div>
-    </div>
+        <div className="form-group">
+          <label htmlFor="login-password">Senha</label>
+          <input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        {error && (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="auth-submit" disabled={loading}>
+          {loading ? 'Entrando...' : 'Entrar'}
+        </button>
+      </form>
+      <p className="auth-footer">
+        Não tem conta? <Link to="/register">Criar conta</Link>
+      </p>
+    </AuthCard>
   );
 }

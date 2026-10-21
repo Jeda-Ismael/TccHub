@@ -29,7 +29,16 @@ make up      # sobe API, PostgreSQL, frontend e Mailpit
 | PostgreSQL | `localhost:5432` · usuário `app` · senha `app` · banco `hubtcc` |
 | Adminer (opcional) | `docker compose --profile tools up -d adminer` → http://localhost:8080 |
 
-> As telas do frontend dependem dos endpoints que serão migrados nas próximas fases; até a Fase 2 (autenticação), use o backend NestJS para testar o sistema.
+Na primeira subida (e depois de um `git pull` com migrations novas), prepare o banco:
+
+```bash
+docker compose exec php bin/console doctrine:migrations:migrate -n
+docker compose exec php bin/console doctrine:fixtures:load -n   # usuários de teste
+```
+
+Contas de teste (senha `123456`): `aluno@hubtcc.dev`, `orientador@hubtcc.dev`, `avaliador1@hubtcc.dev`, `avaliador2@hubtcc.dev`, `coordenacao@hubtcc.dev` e `professor@hubtcc.dev` (Orientador + Avaliador + Coordenação, para testar o seletor "Ver como").
+
+> Migração em andamento: login, cadastro e gestão de usuários já usam o Symfony. As telas de TCC, banca e cadastros dependem das próximas fases (3 a 5) e mostram erro até lá.
 
 Comandos úteis: `make help` lista tudo; `make qa` roda estilo, PHPStan e testes; `make sh` abre um shell na API.
 

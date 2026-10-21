@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { Keyword, SubmissionPeriod, Tcc, ThematicArea, UserSummary } from './types';
+import { Keyword, Role, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
 
 // --- TCC ---
 export function useTccs() {
@@ -168,17 +168,26 @@ export function useDeleteKeyword() {
 }
 
 // --- Usuários ---
-export function useUsers(role?: string) {
+/** Usuários com um papel (ex.: orientadores) — visão resumida, para qualquer logado. */
+export function useUsers(role: Role) {
   return useQuery({
     queryKey: ['users', role],
-    queryFn: async () => (await api.get<UserSummary[]>('/users', { params: role ? { role } : {} })).data,
+    queryFn: async () => (await api.get<UserSummary[]>('/users', { params: { role } })).data,
   });
 }
 
-export function useUpdateUserRole() {
+/** Todos os usuários com papéis — só a coordenação pode. */
+export function useAllUsers() {
+  return useQuery({
+    queryKey: ['users', 'all'],
+    queryFn: async () => (await api.get<User[]>('/users')).data,
+  });
+}
+
+export function useUpdateUserRoles() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => (await api.patch<UserSummary>(`/users/${id}/role`, { role })).data,
+    mutationFn: async ({ id, roles }: { id: string; roles: Role[] }) => (await api.put<User>(`/users/${id}/roles`, { roles })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 }
@@ -186,8 +195,8 @@ export function useUpdateUserRole() {
 export function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; password: string; role: string }) =>
-      (await api.post<UserSummary>('/users', data)).data,
+    mutationFn: async (data: { name: string; email: string; password: string; roles: Role[] }) =>
+      (await api.post<User>('/users', data)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 }

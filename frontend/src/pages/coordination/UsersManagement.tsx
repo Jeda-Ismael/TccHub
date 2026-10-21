@@ -1,35 +1,49 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { useCreateUser, useDeleteUser, useUpdateUserRole, useUsers } from '../../api/hooks';
-import { Role, UserSummary } from '../../api/types';
+import { apiErrorMessage } from '../../api/client';
+import { useAllUsers, useCreateUser, useDeleteUser, useUpdateUserRoles } from '../../api/hooks';
+import { ROLE_LABELS, ROLES, Role, User } from '../../api/types';
+import { useAuth } from '../../auth/AuthContext';
 
-const ROLES: Role[] = ['STUDENT', 'ADVISOR', 'EVALUATOR', 'COORDINATION'];
+/**
+ * Aluno é exclusivo: marcar Aluno desmarca os outros papéis, e marcar
+ * qualquer outro desmarca Aluno (mesma regra da API).
+ */
+export function toggleRole(current: Role[], role: Role): Role[] {
+  if (current.includes(role)) return current.filter((r) => r !== role);
+  if (role === 'STUDENT') return ['STUDENT'];
+  return ROLES.filter((r) => r !== 'STUDENT' && (r === role || current.includes(r)));
+}
 
-const ROLE_LABELS: Record<Role, string> = {
-  STUDENT: 'Aluno',
-  ADVISOR: 'Orientador',
-  EVALUATOR: 'Avaliador',
-  COORDINATION: 'Coordenação',
-};
+export function RoleCheckboxes({ value, onChange, disabled }: { value: Role[]; onChange: (roles: Role[]) => void; disabled?: boolean }) {
+  return (
+    <div className="role-checkboxes">
+      {ROLES.map((role) => (
+        <label key={role}>
+          <input type="checkbox" checked={value.includes(role)} onChange={() => onChange(toggleRole(value, role))} disabled={disabled} />
+          {ROLE_LABELS[role]}
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export function UsersManagement() {
-  const { data: users, isLoading } = useUsers();
-  const updateRole = useUpdateUserRole();
+  const { user: currentUser } = useAuth();
+  const { data: users, isLoading } = useAllUsers();
+  const updateRoles = useUpdateUserRoles();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
 
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<Role | ''>('');
   const [error, setError] = useState<string | null>(null);
-  // Confirmação inline em vez de window.confirm(): um <select> controlado
-  // não se "desfaz" sozinho se o usuário cancelar um diálogo nativo bloqueante,
-  // porque o navegador já aplicou a seleção no DOM antes do React poder reagir.
-  const [pending, setPending] = useState<{ user: UserSummary; newRole: Role } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; roles: Role[] } | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<Role>('STUDENT');
+  const [newRoles, setNewRoles] = useState<Role[]>(['ADVISOR']);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -37,38 +51,31 @@ export function UsersManagement() {
     const term = search.trim().toLowerCase();
     return users.filter((u) => {
       const matchesSearch = !term || u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term);
-      const matchesRole = !roleFilter || u.role === roleFilter;
+      const matchesRole = !roleFilter || u.roles.includes(roleFilter);
       return matchesSearch && matchesRole;
     });
   }, [users, search, roleFilter]);
 
   if (isLoading) return <p>Carregando...</p>;
 
-  function requestRoleChange(user: UserSummary, role: string) {
-    setError(null);
-    if (role === user.role) return;
-    setPending({ user, newRole: role as Role });
-  }
-
-  async function confirmRoleChange() {
-    if (!pending) return;
+  async function saveRoles() {
+    if (!editing) return;
     setError(null);
     try {
-      await updateRole.mutateAsync({ id: pending.user.id, role: pending.newRole });
-      setPending(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível alterar o papel deste usuário');
-      setPending(null);
+      await updateRoles.mutateAsync(editing);
+      setEditing(null);
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível alterar os papéis deste usuário.'));
     }
   }
 
-  async function handleDelete(user: UserSummary) {
+  async function handleDelete(user: User) {
     setError(null);
     try {
       await deleteUser.mutateAsync(user.id);
-      setConfirmingDeleteId(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível excluir este usuário');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível excluir este usuário.'));
+    } finally {
       setConfirmingDeleteId(null);
     }
   }
@@ -77,13 +84,13 @@ export function UsersManagement() {
     e.preventDefault();
     setCreateError(null);
     try {
-      await createUser.mutateAsync({ name: newName, email: newEmail, password: newPassword, role: newRole });
+      await createUser.mutateAsync({ name: newName, email: newEmail, password: newPassword, roles: newRoles });
       setNewName('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('STUDENT');
-    } catch (err: any) {
-      setCreateError(err.response?.data?.message || 'Não foi possível criar o usuário');
+      setNewRoles(['ADVISOR']);
+    } catch (err) {
+      setCreateError(apiErrorMessage(err, 'Não foi possível criar o usuário.'));
     }
   }
 
@@ -91,11 +98,14 @@ export function UsersManagement() {
     <div>
       <div className="card">
         <h2>Usuários</h2>
-        <p className="muted">Promova um usuário para Orientador, Avaliador ou Coordenação. Novos cadastros (inclusive via Google) entram como Aluno.</p>
+        <p className="muted">
+          Um professor pode acumular os papéis de Orientador, Avaliador e Coordenação. Aluno não combina com outros papéis. Novos cadastros
+          entram como Aluno.
+        </p>
 
         <div className="btn-row" style={{ marginBottom: '1rem' }}>
-          <input placeholder="Buscar por nome ou email..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} style={{ width: 'auto' }}>
+          <input placeholder="Buscar por nome ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} style={{ width: 'auto' }} aria-label="Filtrar por papel">
             <option value="">Todos os papéis</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -105,15 +115,19 @@ export function UsersManagement() {
           </select>
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
         {!filtered.length && <p className="muted">Nenhum usuário corresponde à busca.</p>}
 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
               <th style={{ padding: '0.5rem 0' }}>Nome</th>
-              <th>Email</th>
-              <th>Papel</th>
+              <th>E-mail</th>
+              <th>Papéis</th>
               <th></th>
             </tr>
           </thead>
@@ -123,28 +137,33 @@ export function UsersManagement() {
                 <td style={{ padding: '0.5rem 0' }}>{u.name}</td>
                 <td>{u.email}</td>
                 <td>
-                  {pending?.user.id === u.id ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
-                      Mudar para <strong>{ROLE_LABELS[pending.newRole]}</strong>?
-                      <button type="button" onClick={confirmRoleChange} disabled={updateRole.isPending}>
-                        Confirmar
+                  {editing?.id === u.id ? (
+                    <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                      <RoleCheckboxes value={editing.roles} onChange={(roles) => setEditing({ id: u.id, roles })} disabled={updateRoles.isPending} />
+                      <button type="button" onClick={saveRoles} disabled={updateRoles.isPending || editing.roles.length === 0}>
+                        Salvar
                       </button>
-                      <button type="button" className="secondary" onClick={() => setPending(null)} disabled={updateRole.isPending}>
+                      <button type="button" className="secondary" onClick={() => setEditing(null)} disabled={updateRoles.isPending}>
                         Cancelar
                       </button>
                     </span>
                   ) : (
-                    <select value={u.role} onChange={(e) => requestRoleChange(u, e.target.value)} disabled={updateRole.isPending}>
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span className="role-chips">
+                        {u.roles.map((role) => (
+                          <span key={role} className="role-chip">
+                            {ROLE_LABELS[role]}
+                          </span>
+                        ))}
+                      </span>
+                      <button type="button" className="secondary" onClick={() => setEditing({ id: u.id, roles: u.roles })}>
+                        Editar
+                      </button>
+                    </span>
                   )}
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  {confirmingDeleteId === u.id ? (
+                  {u.id === currentUser?.id ? null : confirmingDeleteId === u.id ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
                       Excluir?
                       <button type="button" className="danger" onClick={() => handleDelete(u)} disabled={deleteUser.isPending}>
@@ -168,32 +187,30 @@ export function UsersManagement() {
 
       <div className="card">
         <h3>Criar usuário</h3>
-        <p className="muted">Cadastra diretamente com um papel já definido — útil para dar acesso a orientadores/avaliadores que ainda não se registraram sozinhos.</p>
+        <p className="muted">Dá acesso a orientadores, avaliadores e coordenadores que ainda não têm conta.</p>
         <form onSubmit={handleCreate}>
           <div className="form-group">
-            <label>Nome</label>
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} required minLength={2} />
+            <label htmlFor="new-user-name">Nome</label>
+            <input id="new-user-name" value={newName} onChange={(e) => setNewName(e.target.value)} required />
           </div>
           <div className="form-group">
-            <label>Email</label>
-            <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+            <label htmlFor="new-user-email">E-mail</label>
+            <input id="new-user-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
           </div>
           <div className="form-group">
-            <label>Senha inicial</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
+            <label htmlFor="new-user-password">Senha inicial</label>
+            <input id="new-user-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
           </div>
           <div className="form-group">
-            <label>Papel</label>
-            <select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
+            <label>Papéis</label>
+            <RoleCheckboxes value={newRoles} onChange={setNewRoles} />
           </div>
-          {createError && <p className="error-text">{createError}</p>}
-          <button type="submit" disabled={createUser.isPending}>
+          {createError && (
+            <p className="error-text" role="alert">
+              {createError}
+            </p>
+          )}
+          <button type="submit" disabled={createUser.isPending || newRoles.length === 0}>
             Criar usuário
           </button>
         </form>
