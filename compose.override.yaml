@@ -8,8 +8,6 @@ services:
       - ./api:/app
       - ./api/frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
       - ./api/frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
-      # Script de inicialização direto da pasta do projeto: mudanças nele valem sem rebuild
-      - ./api/frankenphp/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint:ro
       # Mantém var/ fora do bind mount (I/O mais rápido no Mac/Windows)
       - /app/var
     environment:
@@ -25,6 +23,11 @@ services:
       # Garante que host.docker.internal exista no Linux (Xdebug)
       - host.docker.internal:host-gateway
     tty: true
+    # Roda o script de inicialização direto da pasta do projeto (mudanças nele
+    # valem sem rebuild). Chamado via sh: não depende da permissão de execução,
+    # que se perde em clones no Windows.
+    entrypoint: ["sh", "/app/frankenphp/docker-entrypoint.sh"]
+    command: ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--watch"]
 
   database:
     ports:
