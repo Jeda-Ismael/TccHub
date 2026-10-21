@@ -1,0 +1,7 @@
+# Arquivos que rodam dentro dos containers Linux precisam de fim de linha LF,
+# mesmo quando o repositório é clonado no Windows (core.autocrlf=true).
+* text=auto
+*.sh text eol=lf
+api/bin/* text eol=lf
+api/frankenphp/** text eol=lf
+Makefile text eol=lf
