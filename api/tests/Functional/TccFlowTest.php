@@ -222,6 +222,19 @@ final class TccFlowTest extends ApiTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    public function testVeryLongFileNameIsShortenedNotAnError(): void
+    {
+        $id = $this->draft();
+        $file = $this->pdf();
+        $longName = str_repeat('a', 400).'.pdf';
+
+        $this->upload($id, $this->as($this->student), new UploadedFile($file->getPathname(), $longName, 'application/pdf', null, true));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(255, mb_strlen($this->json()['document']['originalName']));
+        self::assertStringEndsWith('.pdf', $this->json()['document']['originalName']);
+    }
+
     public function testOutsidersCannotSeeOrTouchTheTcc(): void
     {
         $id = $this->draft();
@@ -320,6 +333,11 @@ final class TccFlowTest extends ApiTestCase
         $id = $this->inEvaluation();
         self::getContainer()->get(Connection::class)->executeStatement("DELETE FROM submission_periods WHERE type = 'EVALUATION'");
 
+        // A tela não oferece o formulário fora do prazo
+        $this->request('GET', "/api/tcc/$id", token: $this->as($this->evaluator1));
+        self::assertFalse($this->json()['evaluationPeriodOpen']);
+        self::assertFalse($this->json()['permissions']['evaluate']);
+
         $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $this->as($this->evaluator1));
 
         self::assertResponseStatusCodeSame(422);
@@ -338,14 +356,84 @@ final class TccFlowTest extends ApiTestCase
 
     public function testRemovingThePendingEvaluatorClosesTheRound(): void
     {
-        $id = $this->inEvaluation();
+        $third = UserFactory::new()->evaluator()->create(['name' => 'Bia']);
+        $id = $this->draft();
+        $this->request('POST', "/api/tcc/$id/submit", token: $this->as($this->student));
+        $coordination = $this->as($this->coordination);
+        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1), $this->id($this->evaluator2), $this->id($third)]], $coordination);
+        $this->request('POST', "/api/tcc/$id/advisor-review", ['approve' => true], $this->as($this->advisor));
         $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $this->as($this->evaluator1));
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $this->as($this->evaluator2));
 
-        // A coordenação tira da banca quem não votou: o parecer que resta decide
-        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1)]], $this->as($this->coordination));
+        // A coordenação tira da banca quem não votou: os pareceres que restam decidem
+        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1), $this->id($this->evaluator2)]], $coordination);
 
         self::assertResponseIsSuccessful();
         self::assertSame('ADVISOR_FINAL_REVIEW', $this->json()['status']);
+    }
+
+    public function testBoardKeepsTheMinimumSizeDuringEvaluation(): void
+    {
+        $id = $this->inEvaluation();
+
+        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1)]], $this->as($this->coordination));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Com o TCC em avaliação, a banca precisa manter pelo menos 2 avaliadores.', $this->json()['message']);
+    }
+
+    public function testVoteCannotBeChangedAfterSeeingTheOthers(): void
+    {
+        $id = $this->inEvaluation();
+        $token = $this->as($this->evaluator1);
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $token);
+        self::assertFalse($this->json()['permissions']['evaluate']);
+
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'CORRECTIONS_REQUESTED', 'comment' => 'Mudei de ideia'], $token);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testResubmissionNeedsANewPdf(): void
+    {
+        $id = $this->inEvaluation();
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $this->as($this->evaluator1));
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'CORRECTIONS_REQUESTED', 'comment' => 'Ajustar'], $this->as($this->evaluator2));
+        $token = $this->as($this->student);
+
+        $this->request('POST', "/api/tcc/$id/submit", token: $token);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('Envie a versão corrigida do PDF antes de reenviar.', $this->json()['message']);
+
+        $this->upload($id, $token, $this->pdf('corrigido'));
+        $this->request('POST', "/api/tcc/$id/submit", token: $token);
+        self::assertSame('RESUBMITTED', $this->json()['status']);
+    }
+
+    public function testOneActiveTccPerStudent(): void
+    {
+        $this->draft();
+
+        $this->request('POST', '/api/tcc', ['title' => 'Outro', 'abstract' => 'R'], $this->as($this->student));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Você já tem um TCC em andamento.', $this->json()['message']);
+    }
+
+    public function testFailedActionDoesNotBreakTheNextOne(): void
+    {
+        $id = $this->draft();
+        $token = $this->as($this->coordination);
+
+        // Uma regra barrada não pode deixar a banca pela metade nem travar o sistema
+        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1), $this->id($this->advisor)]], $token);
+        self::assertResponseStatusCodeSame(422);
+        $this->request('GET', "/api/tcc/$id", token: $token);
+        self::assertSame([], $this->json()['board']);
+
+        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1), $this->id($this->evaluator2)]], $token);
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->json()['board']);
     }
 
     public function testAdvisorRejectionNeedsAReasonAndEndsTheTcc(): void

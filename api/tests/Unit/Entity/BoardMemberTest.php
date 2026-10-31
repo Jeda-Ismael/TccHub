@@ -70,4 +70,23 @@ final class BoardMemberTest extends TestCase
         self::assertFalse($this->member->hasVoted());
         self::assertNull($this->member->getComment());
     }
+
+    public function testVoteIsFinalWithinTheRound(): void
+    {
+        $this->member->giveVerdict(EvaluationVerdict::Approved, null);
+
+        $this->expectExceptionMessage('Você já registrou seu parecer nesta rodada e ele não pode ser alterado.');
+
+        $this->member->giveVerdict(EvaluationVerdict::CorrectionsRequested, 'Mudei de ideia');
+    }
+
+    public function testCanVoteAgainInANewRound(): void
+    {
+        $this->member->giveVerdict(EvaluationVerdict::CorrectionsRequested, 'Ajustar');
+        $this->member->resetVerdict();
+
+        $this->member->giveVerdict(EvaluationVerdict::Approved, null);
+
+        self::assertSame(EvaluationVerdict::Approved, $this->member->getVerdict());
+    }
 }

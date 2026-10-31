@@ -53,7 +53,9 @@ final class TccVoter extends Voter
             self::UPLOAD, self::SUBMIT => $isAuthor && $editableByStudent,
             self::ADVISOR_REVIEW => $subject->isAdvisedBy($user)
                 && \in_array($subject->getStatus(), [TccStatus::Submitted, TccStatus::Resubmitted, TccStatus::AdvisorFinalReview], true),
-            self::EVALUATE => null !== $subject->findBoardMember($user) && TccStatus::SentToEvaluation === $subject->getStatus(),
+            // Só quem ainda não votou nesta rodada (o voto não é alterado depois de ver os colegas)
+            self::EVALUATE => TccStatus::SentToEvaluation === $subject->getStatus()
+                && false === $subject->findBoardMember($user)?->hasVoted(),
             self::MANAGE_BOARD => $isCoordination && !$subject->getStatus()->isBoardLocked(),
             default => false,
         };

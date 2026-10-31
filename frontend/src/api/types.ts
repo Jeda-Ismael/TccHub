@@ -106,6 +106,8 @@ export interface Tcc {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Há prazo de avaliação aberto agora. */
+  evaluationPeriodOpen: boolean;
   permissions: TccPermissions;
 }
 

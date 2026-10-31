@@ -33,10 +33,11 @@ final class TccWorkflowSubscriber implements EventSubscriberInterface
     {
         return [
             'workflow.tcc.guard.submit' => 'guardReadyToSubmit',
-            'workflow.tcc.guard.resubmit' => 'guardReadyToSubmit',
+            'workflow.tcc.guard.resubmit' => [['guardReadyToSubmit'], ['guardNewVersion']],
             'workflow.tcc.guard.advisor_approve' => 'guardBoardSize',
             'workflow.tcc.completed' => 'recordHistory',
             'workflow.tcc.entered.SENT_TO_EVALUATION' => 'startEvaluationRound',
+            'workflow.tcc.entered.CORRECTIONS_REQUESTED' => 'markCorrectionsRequested',
             'workflow.tcc.entered.AWAITING_DEFENSE' => 'openDefense',
         ];
     }
@@ -49,6 +50,13 @@ final class TccWorkflowSubscriber implements EventSubscriberInterface
         }
         if (null === $tcc->getAdvisor()) {
             $event->addTransitionBlocker(new TransitionBlocker('Escolha um orientador antes de submeter.', 'no_advisor'));
+        }
+    }
+
+    public function guardNewVersion(GuardEvent $event): void
+    {
+        if (!$this->tcc($event)->hasDocumentSinceCorrectionsRequested()) {
+            $event->addTransitionBlocker(new TransitionBlocker('Envie a versão corrigida do PDF antes de reenviar.', 'no_new_version'));
         }
     }
 
@@ -95,6 +103,11 @@ final class TccWorkflowSubscriber implements EventSubscriberInterface
         foreach ($this->tcc($event)->getBoardMembers() as $member) {
             $member->resetVerdict();
         }
+    }
+
+    public function markCorrectionsRequested(EnteredEvent $event): void
+    {
+        $this->tcc($event)->markCorrectionsRequested();
     }
 
     public function openDefense(EnteredEvent $event): void

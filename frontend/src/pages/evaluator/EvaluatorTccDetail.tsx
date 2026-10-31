@@ -11,9 +11,9 @@ import { TccSummary } from '../../components/TccSummary';
 function nextStep(tcc: Tcc): string | null {
   const me = tcc.board.find((m) => m.isMe);
   if (tcc.status === 'SENT_TO_EVALUATION') {
-    return me?.verdict === 'PENDING'
-      ? 'Leia o PDF e registre seu parecer. Os pareceres dos colegas aparecem depois que você votar.'
-      : 'Seu parecer foi registrado. O TCC avança quando toda a banca terminar.';
+    if (me?.verdict !== 'PENDING') return 'Seu parecer foi registrado. O TCC avança quando toda a banca terminar.';
+    if (!tcc.evaluationPeriodOpen) return 'O prazo de avaliação está fechado. Você poderá dar o parecer quando a coordenação abrir um novo prazo.';
+    return 'Leia o PDF e registre seu parecer. Ele não pode ser alterado depois, e os pareceres dos colegas aparecem só depois que você votar.';
   }
   if (tcc.status === 'CORRECTIONS_REQUESTED') return 'A banca pediu correções. Você avalia de novo quando o aluno reenviar e o orientador aprovar.';
   if (['DRAFT', 'SUBMITTED', 'RESUBMITTED'].includes(tcc.status)) return 'O TCC ainda não foi enviado à banca pelo orientador.';
@@ -40,8 +40,7 @@ export function EvaluatorTccDetail() {
 
 function EvaluationForm({ tcc }: { tcc: Tcc }) {
   const evaluate = useEvaluate(tcc.id);
-  const me = tcc.board.find((m) => m.isMe);
-  const [comment, setComment] = useState(me?.comment ?? '');
+  const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   async function handle(verdict: 'APPROVED' | 'CORRECTIONS_REQUESTED') {
@@ -55,7 +54,8 @@ function EvaluationForm({ tcc }: { tcc: Tcc }) {
 
   return (
     <div className="card">
-      <h3>{me?.verdict === 'PENDING' ? 'Seu parecer' : 'Alterar seu parecer'}</h3>
+      <h3>Seu parecer</h3>
+      <p className="muted">Confira antes de enviar: o parecer não pode ser alterado depois.</p>
       <div className="form-group">
         <label htmlFor="evaluation-comment">Comentário (obrigatório para pedir correções)</label>
         <textarea id="evaluation-comment" value={comment} onChange={(e) => setComment(e.target.value)} />

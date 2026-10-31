@@ -10,11 +10,14 @@ use App\Entity\TccDocument;
 use App\Entity\TccStatusHistory;
 use App\Entity\User;
 use App\Enum\EvaluationVerdict;
+use App\Enum\PeriodType;
 use App\Enum\TccStatus;
 use App\Security\Voter\TccVoter;
+use App\Service\PeriodChecker;
 use Symfony\Component\HttpFoundation\UriSigner;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Formato do TCC nas respostas da API, ajustado a quem está vendo:
@@ -23,7 +26,7 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
  * - os links de download são assinados e expiram em 5 minutos;
  * - `permissions` diz quais ações a tela pode oferecer.
  */
-final class TccView
+final class TccView implements ResetInterface
 {
     private const DOWNLOAD_LINK_TTL = 300;
 
@@ -31,7 +34,24 @@ final class TccView
         private readonly AuthorizationCheckerInterface $authorization,
         private readonly UrlGeneratorInterface $urls,
         private readonly UriSigner $signer,
+        private readonly PeriodChecker $periods,
     ) {
+    }
+
+    /**
+     * Consultado uma vez por requisição, não uma vez por TCC da lista. Zerado a
+     * cada requisição (ResetInterface): no modo worker o serviço é reaproveitado.
+     */
+    private ?bool $evaluationPeriodOpen = null;
+
+    public function reset(): void
+    {
+        $this->evaluationPeriodOpen = null;
+    }
+
+    private function isEvaluationPeriodOpen(): bool
+    {
+        return $this->evaluationPeriodOpen ??= $this->periods->isOpen(PeriodType::Evaluation);
     }
 
     /** @return array<string, mixed> */
@@ -57,12 +77,14 @@ final class TccView
             'publishedAt' => $tcc->getPublishedAt()?->format(\DATE_ATOM),
             'createdAt' => $tcc->getCreatedAt()->format(\DATE_ATOM),
             'updatedAt' => $tcc->getUpdatedAt()->format(\DATE_ATOM),
+            'evaluationPeriodOpen' => $this->isEvaluationPeriodOpen(),
             'permissions' => [
                 'edit' => $this->authorization->isGranted(TccVoter::EDIT, $tcc),
                 'upload' => $this->authorization->isGranted(TccVoter::UPLOAD, $tcc),
                 'submit' => $this->authorization->isGranted(TccVoter::SUBMIT, $tcc),
                 'advisorReview' => $this->authorization->isGranted(TccVoter::ADVISOR_REVIEW, $tcc),
-                'evaluate' => $this->authorization->isGranted(TccVoter::EVALUATE, $tcc),
+                // Fora do prazo de avaliação a tela não oferece o formulário (a API recusaria)
+                'evaluate' => $this->authorization->isGranted(TccVoter::EVALUATE, $tcc) && $this->isEvaluationPeriodOpen(),
                 'manageBoard' => $this->authorization->isGranted(TccVoter::MANAGE_BOARD, $tcc),
             ],
         ];

@@ -58,7 +58,9 @@ final class PeriodRequest
             : (\DateTimeImmutable::createFromFormat(\DateTimeInterface::RFC3339_EXTENDED, $value)
                 ?: \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $value));
 
-        if (false === $date) {
+        // createFromFormat "corrige" datas impossíveis (31/02 vira 03/03): rejeita em vez de aceitar outra data
+        $errors = \DateTimeImmutable::getLastErrors();
+        if (false === $date || (false !== $errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
             throw new DomainRuleViolation($error);
         }
 

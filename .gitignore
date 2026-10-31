@@ -17,3 +17,6 @@ dist/
 
 # Segredos de produção (modelo em .env.prod.example)
 .env.prod
+
+# Cache do Vite (nunca versionar)
+.vite/

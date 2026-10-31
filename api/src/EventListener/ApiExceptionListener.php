@@ -6,6 +6,7 @@ namespace App\EventListener;
 
 use App\Exception\DomainRuleViolation;
 use App\Exception\TransitionNotAllowed;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,6 +34,13 @@ final class ApiExceptionListener
         }
 
         $exception = $event->getThrowable();
+
+        // Duas ações simultâneas sobre o mesmo registro (ex.: dois envios de PDF)
+        if ($exception instanceof UniqueConstraintViolationException) {
+            $event->setResponse($this->json(Response::HTTP_CONFLICT, 'Outra alteração foi feita ao mesmo tempo. Atualize a página e tente de novo.'));
+
+            return;
+        }
 
         if ($exception instanceof TransitionNotAllowed) {
             $event->setResponse($this->json(Response::HTTP_CONFLICT, $exception->getMessage()));

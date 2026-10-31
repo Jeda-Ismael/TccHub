@@ -597,11 +597,21 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - **Prazos:** a coordenação informa só a data; o prazo vale o dia inteiro no fuso da instituição (`app.timezone`, padrão `America/Sao_Paulo`).
 - **Catálogos:** nome único sem diferenciar maiúsculas; área ou palavra-chave em uso por algum TCC não pode ser excluída.
 - **Permissões** pelo vínculo com o TCC (`TccVoter`). Quem não participa do TCC recebe 404, para nem saber que ele existe. A resposta traz `permissions`, e a tela só mostra os botões permitidos.
-- **Ações fora do status atual** respondem 409 com a explicação (ex.: "A banca precisa ter de 2 a 3 avaliadores…").
+- **Códigos de erro**: quando a permissão depende do status (editar, enviar PDF, submeter, avaliar), o Voter barra com **403** e a tela nem mostra o botão; quando a ação é permitida mas uma regra do fluxo impede, a resposta é **409** com a explicação (ex.: "A banca precisa ter de 2 a 3 avaliadores…", "Envie a versão corrigida do PDF antes de reenviar."). Regra de negócio violada nos dados enviados: **422**.
 - **Recusar** (orientador reprovando, ou devolvendo na revisão final) e **pedir correções** (avaliador) exigem comentário.
 - **Aluno não vê pareceres parciais**: durante a avaliação, os votos aparecem como pendentes até a rodada fechar.
 - **Download do PDF**: link assinado de 5 minutos (`UriSigner`), gerado só para quem pode ver o TCC; serve num `<a href>` comum.
 - **Entrar em `AWAITING_DEFENSE`** já abre a 1ª tentativa de defesa (sem data); o agendamento e as notas são a Fase 5.
+
+**Ajustes da revisão de código (PR #4):**
+
+- **Concorrência**: toda ação que muda o TCC (enviar PDF, submeter, revisão do orientador, montar banca, parecer) roda numa transação com a linha do TCC travada (`PESSIMISTIC_WRITE`) e **recarrega os votos da banca** antes de decidir — sem isso, dois avaliadores votando juntos podiam deixar o TCC preso em avaliação. Coberto por `BoardConsensusConcurrencyTest`.
+- **Parecer é definitivo na rodada**: depois de votar o avaliador vê os colegas, então não pode mais trocar o voto (preserva a avaliação cega). Numa nova rodada (após reenvio) vota de novo.
+- **Banca durante a avaliação** mantém o tamanho mínimo das configurações.
+- **Reenvio exige PDF novo**: a versão do PDF é registrada quando as correções são pedidas; reenviar exige uma versão mais nova.
+- **Um TCC em andamento por aluno**: novo TCC só depois de o anterior ser aprovado ou reprovado.
+- **Listagem sem N+1**: as coleções são carregadas em lote (consultas fixas, independentemente do número de TCCs). Coberto por `TccListingQueriesTest`.
+- Datas impossíveis (31/02) são rejeitadas; nomes de arquivo longos são encurtados; envios simultâneos respondem 409 em vez de 500.
 
 ## 15. Backlog (fora do escopo)
 
