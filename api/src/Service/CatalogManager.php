@@ -7,6 +7,7 @@ namespace App\Service;
 use App\Entity\Keyword;
 use App\Entity\ThematicArea;
 use App\Exception\DomainRuleViolation;
+use App\Search\RepositoryIndex;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -19,8 +20,10 @@ final class CatalogManager
         Keyword::class => ['singular' => 'palavra-chave', 'join' => 'tcc_keywords', 'column' => 'keyword_id'],
     ];
 
-    public function __construct(private readonly EntityManagerInterface $em)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly RepositoryIndex $index,
+    ) {
     }
 
     /**
@@ -67,6 +70,8 @@ final class CatalogManager
         $this->assertNameIsFree($item::class, $name, $item);
         $item->rename($name);
         $this->em->flush();
+        // O nome entra na busca do repositório
+        $this->index->rebuild();
     }
 
     /** Não apaga o que está em uso: o TCC perderia a classificação sem ninguém perceber. */

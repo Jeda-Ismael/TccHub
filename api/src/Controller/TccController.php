@@ -9,6 +9,7 @@ use App\Dto\BoardRequest;
 use App\Dto\DecisionRequest;
 use App\Dto\DefenseGradeRequest;
 use App\Dto\EvaluateRequest;
+use App\Dto\PublicationAuthorizationRequest;
 use App\Dto\ScheduleDefenseRequest;
 use App\Dto\TccRequest;
 use App\Dto\TccView;
@@ -234,6 +235,24 @@ final class TccController extends AbstractController
     {
         $tcc = $this->find($id, TccVoter::DECIDE);
         $defenses->decide($tcc, DecisionRequest::NEW_DEFENSE === $payload->action, $payload->comment);
+
+        return $this->json($this->view->present($tcc, $user));
+    }
+
+    #[Route('/{id}/publication-authorization', name: 'api_tcc_publication_authorization', requirements: ['id' => Requirement::UUID], methods: ['PUT'])]
+    public function authorizePublication(string $id, #[CurrentUser] User $user, #[MapRequestPayload] PublicationAuthorizationRequest $payload): JsonResponse
+    {
+        $tcc = $this->find($id, TccVoter::AUTHORIZE_PUBLICATION);
+        $this->service->authorizePublication($tcc, (bool) $payload->authorized);
+
+        return $this->json($this->view->present($tcc, $user));
+    }
+
+    #[Route('/{id}/publish', name: 'api_tcc_publish', requirements: ['id' => Requirement::UUID], methods: ['POST', 'DELETE'])]
+    public function publish(string $id, Request $request, #[CurrentUser] User $user): JsonResponse
+    {
+        $tcc = $this->find($id, TccVoter::PUBLISH);
+        $this->service->publish($tcc, $request->isMethod('POST'));
 
         return $this->json($this->view->present($tcc, $user));
     }

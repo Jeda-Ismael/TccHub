@@ -19,4 +19,7 @@ enum NotificationType: string
     case TccApproved = 'TCC_APPROVED';
     case TccRejected = 'TCC_REJECTED';
     case PublicationRequested = 'PUBLICATION_REQUESTED';
+    case PublicationWithdrawn = 'PUBLICATION_WITHDRAWN';
+    case TccPublished = 'TCC_PUBLISHED';
+    case TccUnpublished = 'TCC_UNPUBLISHED';
 }

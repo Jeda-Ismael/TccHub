@@ -8,6 +8,8 @@ doctrine:
 
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
+        # tcc_search (índice da busca do repositório) é gerida por SQL, fora das entidades
+        schema_filter: ~^(?!tcc_search$)~
     orm:
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true

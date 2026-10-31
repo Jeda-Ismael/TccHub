@@ -19,7 +19,9 @@ use App\Notification\Notifier;
 use App\Repository\SettingsRepository;
 use App\Repository\TccRepository;
 use App\Repository\UserRepository;
+use App\Search\RepositoryIndex;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\Uid\Uuid;
@@ -43,6 +45,8 @@ final class TccService
         private readonly DocumentStorage $storage,
         private readonly TccLocker $locker,
         private readonly Notifier $notifier,
+        private readonly RepositoryIndex $index,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -106,6 +110,52 @@ final class TccService
         if (null !== $keywordIds) {
             $tcc->replaceKeywords($this->findAll(Keyword::class, $keywordIds, 'Palavra-chave'));
         }
+    }
+
+    /**
+     * O aluno autoriza (ou retira a autorização de) publicar o TCC aprovado.
+     * Retirar tira o TCC do repositório na hora.
+     */
+    public function authorizePublication(Tcc $tcc, bool $authorized): void
+    {
+        $this->locker->run($tcc, function () use ($tcc, $authorized): void {
+            if ($authorized === $tcc->isPublicationAuthorized()) {
+                return;
+            }
+            $wasPublished = $tcc->isPublished();
+            $tcc->authorizePublication($authorized);
+            $this->em->flush();
+            $this->index->sync($tcc);
+
+            if ($authorized) {
+                $this->notifier->notify(NotificationType::PublicationRequested, $tcc, $this->users->findByRole(Role::Coordination),
+                    'Publicação autorizada pelo aluno',
+                    \sprintf('%s autorizou a publicação de "%s" no repositório.', $tcc->getStudent()->getName(), $tcc->getTitle()));
+            } elseif ($wasPublished) {
+                $this->notifier->notify(NotificationType::PublicationWithdrawn, $tcc, $this->users->findByRole(Role::Coordination),
+                    'TCC retirado do repositório',
+                    \sprintf('%s retirou a autorização de "%s", que saiu do repositório.', $tcc->getStudent()->getName(), $tcc->getTitle()));
+            }
+        });
+    }
+
+    /** A coordenação publica (exige a autorização do aluno) ou tira do repositório. */
+    public function publish(Tcc $tcc, bool $publish): void
+    {
+        $this->locker->run($tcc, function () use ($tcc, $publish): void {
+            if ($publish === $tcc->isPublished()) {
+                return;
+            }
+            $publish ? $tcc->publish($this->clock->now()) : $tcc->unpublish();
+            $this->em->flush();
+            $this->index->sync($tcc);
+
+            $this->notifier->notify($publish ? NotificationType::TccPublished : NotificationType::TccUnpublished, $tcc, [$tcc->getStudent()],
+                $publish ? 'TCC publicado no repositório' : 'TCC retirado do repositório',
+                $publish
+                    ? \sprintf('"%s" já pode ser encontrado no repositório.', $tcc->getTitle())
+                    : \sprintf('A coordenação tirou "%s" do repositório.', $tcc->getTitle()));
+        });
     }
 
     public function uploadDocument(Tcc $tcc, File $file, string $originalName, User $uploadedBy): void
