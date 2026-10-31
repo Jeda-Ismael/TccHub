@@ -93,7 +93,7 @@ compose.override.yaml   # dev: build, bind mounts, Xdebug, portas,
                         # web, mailer e adminer (profile "tools")
 ```
 
-Como o deploy é só local, não há `compose.prod.yaml`. O Dockerfile já tem um *target* `prod`, então criar um depois é trivial.
+O deploy ainda é só local, mas a produção já está pronta: `compose.prod.yaml` (imagem com API + frontend compilado, HTTPS automático, segredos em `.env.prod`), testada a cada push pelo job **Produção** da CI. Guia em [`docs/DEPLOY.md`](DEPLOY.md).
 
 ### 3.3 Volumes
 
@@ -616,7 +616,7 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 
 - Login com Google
 - Recuperação de senha / verificação de e-mail
-- Compose de produção e deploy em VPS
+- Deploy de fato num servidor (a configuração já está pronta — ver `docs/DEPLOY.md`)
 - Notificações em tempo real via Mercure
 - Armazenamento em S3/MinIO
 

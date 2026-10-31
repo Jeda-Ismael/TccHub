@@ -76,3 +76,36 @@ jobs:
       - name: Logs em caso de falha
         if: failure()
         run: docker compose logs
+
+  prod:
+    name: Produção (imagem + smoke test)
+    runs-on: ubuntu-latest
+    env:
+      SERVER_NAME: localhost
+      APP_SECRET: ci-secret
+      JWT_PASSPHRASE: ci-passphrase
+      POSTGRES_PASSWORD: ci-password
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Constrói e sobe a versão de produção
+        run: docker compose -f compose.yaml -f compose.prod.yaml up --detach --build --wait
+
+      - name: API responde
+        run: curl -fsSk https://localhost/api/health
+
+      - name: Frontend servido pelo mesmo domínio (inclusive rotas do SPA)
+        run: |
+          curl -fsSk https://localhost/ | grep -q 'id="root"'
+          curl -fsSk https://localhost/coordination/users | grep -q 'id="root"'
+
+      - name: Primeiro usuário e login
+        run: |
+          docker compose -f compose.yaml -f compose.prod.yaml exec -T php bin/console app:user:create "Coordenação CI" ci@hubtcc.dev --role=COORDINATION --password=senha-forte
+          curl -fsSk -X POST https://localhost/api/auth/login -H 'Content-Type: application/json' -d '{"email":"ci@hubtcc.dev","password":"senha-forte"}' | grep -q accessToken
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose -f compose.yaml -f compose.prod.yaml logs

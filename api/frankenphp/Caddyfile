@@ -20,12 +20,20 @@
 
 	{$CADDY_SERVER_EXTRA_DIRECTIVES}
 
-	@phpRoute {
+	# API do Symfony (e as ferramentas de debug em dev)
+	@api path /api /api/* /_profiler* /_wdt*
+	rewrite @api /index.php
+
+	# Frontend React: em produção o build fica em public/ e qualquer rota do
+	# SPA (ex.: /coordination/users) cai no index.html. Em dev o frontend é
+	# servido pelo Vite e este bloco não encontra o index.html (404).
+	@spa {
+		not path /index.php
 		not file {path}
 	}
-	rewrite @phpRoute index.php
+	rewrite @spa /index.html
 
-	@frontController path index.php
+	@frontController path /index.php
 	php @frontController {
 		{$FRANKENPHP_SITE_CONFIG}
 

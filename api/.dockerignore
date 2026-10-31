@@ -33,3 +33,7 @@ vendor/
 .env.local
 .env.local.php
 .env.test
+
+# Chaves do JWT de desenvolvimento nunca entram na imagem (produção gera as suas)
+config/jwt/*.pem
+.env.local

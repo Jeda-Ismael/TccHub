@@ -2,6 +2,7 @@
 # Uso: make <alvo>   (make help lista todos)
 
 DOCKER_COMP = docker compose
+PROD_COMP   = docker compose -f compose.yaml -f compose.prod.yaml --env-file .env.prod
 PHP_CONT    = $(DOCKER_COMP) exec php
 CONSOLE     = $(PHP_CONT) bin/console
 COMPOSER    = $(PHP_CONT) composer
@@ -9,7 +10,8 @@ COMPOSER    = $(PHP_CONT) composer
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps sh composer console \
         db-create db-reset fixtures migration migrate \
-        test-db test coverage phpstan cs cs-fix web-test qa
+        test-db test coverage phpstan cs cs-fix web-test qa \
+        prod-up prod-down prod-logs prod-user
 
 help: ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -88,3 +90,16 @@ web-test: ## Roda os testes e a checagem de tipos do frontend
 	@$(DOCKER_COMP) exec web npm test
 
 qa: cs phpstan test web-test ## Roda tudo o que a CI roda
+
+## —— Produção (no servidor; ver docs/DEPLOY.md) ———————————————
+prod-up: ## Constrói e sobe a versão de produção (usa .env.prod)
+	@$(PROD_COMP) up --detach --build --wait
+
+prod-down: ## Derruba a produção (os dados ficam nos volumes)
+	@$(PROD_COMP) down
+
+prod-logs: ## Logs da produção
+	@$(PROD_COMP) logs --tail=100 --follow
+
+prod-user: ## Cria usuário em produção. Ex.: make prod-user c='"Carla Souza" carla@faculdade.edu.br --role=COORDINATION'
+	@$(PROD_COMP) exec php bin/console app:user:create $(c)
