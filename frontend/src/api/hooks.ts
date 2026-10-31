@@ -74,6 +74,24 @@ export function useEvaluate(id: string) {
   );
 }
 
+export function useScheduleDefense(id: string) {
+  return useTccMutation(
+    async (data: { scheduledAt: string; location?: string; meetingUrl?: string }) => (await api.put<Tcc>(`/tcc/${id}/defense`, data)).data,
+  );
+}
+
+export function useGradeDefense(id: string) {
+  return useTccMutation(
+    async (data: { projectGrade: number; presentationGrade: number; comment?: string }) => (await api.put<Tcc>(`/tcc/${id}/defense/grade`, data)).data,
+  );
+}
+
+export function useDecide(id: string) {
+  return useTccMutation(
+    async (data: { action: 'new_defense' | 'reject'; comment: string }) => (await api.post<Tcc>(`/tcc/${id}/decision`, data)).data,
+  );
+}
+
 // --- Configurações ---
 export function useSettings() {
   return useQuery({ queryKey: ['settings'], queryFn: async () => (await api.get<Settings>('/settings')).data });

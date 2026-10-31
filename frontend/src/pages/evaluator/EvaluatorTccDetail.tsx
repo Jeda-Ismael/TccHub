@@ -4,6 +4,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useEvaluate, useTcc } from '../../api/hooks';
 import { Tcc } from '../../api/types';
 import { BoardList } from '../../components/BoardList';
+import { DefenseSection } from '../../components/DefenseSection';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
@@ -17,6 +18,11 @@ function nextStep(tcc: Tcc): string | null {
   }
   if (tcc.status === 'CORRECTIONS_REQUESTED') return 'A banca pediu correções. Você avalia de novo quando o aluno reenviar e o orientador aprovar.';
   if (['DRAFT', 'SUBMITTED', 'RESUBMITTED'].includes(tcc.status)) return 'O TCC ainda não foi enviado à banca pelo orientador.';
+  if (tcc.status === 'AWAITING_DEFENSE') {
+    if (!tcc.defense?.scheduledAt) return 'Aprovado para a defesa. Aguardando o agendamento.';
+    if (!tcc.defense.hasStarted) return 'Defesa agendada. Você poderá lançar as notas a partir do horário marcado.';
+    return tcc.defense.grades.some((g) => g.isMe) ? 'Suas notas foram registradas. O resultado sai quando toda a banca lançar.' : 'A defesa já aconteceu: lance suas notas de projeto e apresentação.';
+  }
   return null;
 }
 
@@ -32,6 +38,7 @@ export function EvaluatorTccDetail() {
       {step && <p className="notice">{step}</p>}
       <TccSummary tcc={tcc} />
       {tcc.permissions.evaluate && <EvaluationForm tcc={tcc} />}
+      <DefenseSection tcc={tcc} />
       <BoardList board={tcc.board} />
       <StatusHistoryTimeline entries={tcc.statusHistory} />
     </div>

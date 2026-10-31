@@ -4,6 +4,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useAdvisorReview, useTcc } from '../../api/hooks';
 import { Tcc } from '../../api/types';
 import { BoardList } from '../../components/BoardList';
+import { DefenseSection } from '../../components/DefenseSection';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
@@ -17,6 +18,7 @@ export function AdvisorTccDetail() {
     <div>
       <TccSummary tcc={tcc} />
       {tcc.permissions.advisorReview && <AdvisorReview tcc={tcc} />}
+      <DefenseSection tcc={tcc} />
       <BoardList board={tcc.board} />
       <StatusHistoryTimeline entries={tcc.statusHistory} />
     </div>

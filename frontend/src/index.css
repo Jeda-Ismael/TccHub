@@ -505,3 +505,41 @@ button:disabled {
   color: var(--primary);
   border-color: var(--primary);
 }
+
+/* ---- Defesa ---- */
+.defense-info p {
+  margin: 0.25rem 0;
+}
+
+.defense-result {
+  font-size: 1rem;
+}
+
+.grades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.grades-table th,
+.grades-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.defense-form {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.defense-form h4 {
+  margin: 0 0 0.5rem;
+}
+
+.grade-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0 1rem;
+}

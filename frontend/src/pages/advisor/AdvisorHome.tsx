@@ -4,15 +4,17 @@ import { TccListItem } from '../../components/TccListItem';
 
 export function AdvisorHome() {
   const { data: tccs, isLoading, error } = useTccs('ADVISOR');
-  const waiting = tccs?.filter((t) => t.permissions.advisorReview) ?? [];
-  const others = tccs?.filter((t) => !t.permissions.advisorReview) ?? [];
+  // Precisa de mim: revisar, ou agendar uma defesa ainda sem data
+  const needsMe = (t: NonNullable<typeof tccs>[number]) => t.permissions.advisorReview || (t.permissions.scheduleDefense && !t.defense?.scheduledAt);
+  const waiting = tccs?.filter(needsMe) ?? [];
+  const others = tccs?.filter((t) => !needsMe(t)) ?? [];
 
   return (
     <div>
       <QueryStatus isLoading={isLoading} error={error} />
       {!!waiting.length && (
         <div className="card">
-          <h2>Aguardando sua revisão</h2>
+          <h2>Aguardando você</h2>
           {waiting.map((tcc) => (
             <TccListItem key={tcc.id} tcc={tcc} to={`/advisor/${tcc.id}`} subtitle={tcc.student.name} />
           ))}

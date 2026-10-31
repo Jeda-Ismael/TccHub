@@ -3,6 +3,7 @@ import { apiErrorMessage } from '../../api/client';
 import { TccInput, useCreateTcc, useKeywords, useSubmitTcc, useTcc, useTccs, useThematicAreas, useUpdateTcc, useUploadDocument, useUsers } from '../../api/hooks';
 import { Tcc, TccStatus } from '../../api/types';
 import { BoardList } from '../../components/BoardList';
+import { DefenseSection } from '../../components/DefenseSection';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
@@ -15,7 +16,7 @@ const NEXT_STEP: Record<TccStatus, string> = {
   SENT_TO_EVALUATION: 'A banca está avaliando seu TCC. Os pareceres aparecem quando todos terminarem.',
   CORRECTIONS_REQUESTED: 'Faça as correções pedidas, envie a nova versão do PDF e clique em "Reenviar TCC".',
   ADVISOR_FINAL_REVIEW: 'A banca aprovou! Falta a revisão final do orientador.',
-  AWAITING_DEFENSE: 'Aprovado para a defesa. Aguarde o agendamento.',
+  AWAITING_DEFENSE: 'Aprovado para a defesa! Veja abaixo a data e o local quando forem agendados.',
   AWAITING_DECISION: 'A coordenação está decidindo os próximos passos da sua defesa.',
   APPROVED: 'Parabéns, seu TCC foi aprovado!',
   REJECTED: 'Seu TCC foi reprovado. Veja os comentários no histórico.',
@@ -67,6 +68,7 @@ function StudentTcc({ tccId, onStartNew }: { tccId: string; onStartNew?: () => v
 
       {tcc.permissions.edit && <TccForm tcc={tcc} />}
       {(tcc.permissions.upload || tcc.permissions.submit) && <UploadAndSubmit tcc={tcc} />}
+      <DefenseSection tcc={tcc} />
       {roundFinished && <BoardList board={tcc.board} title="Pareceres da banca" />}
       <StatusHistoryTimeline entries={tcc.statusHistory} />
 

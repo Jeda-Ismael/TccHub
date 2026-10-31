@@ -1,6 +1,22 @@
-import { Tcc } from '../api/types';
+import { Tcc, TccPermissions } from '../api/types';
 
 /** TCC de exemplo para os testes de tela; sobrescreva só o que importa. */
+/** Permissões todas falsas, exceto as informadas. */
+export function perms(granted: Partial<TccPermissions> = {}): TccPermissions {
+  return {
+    edit: false,
+    upload: false,
+    submit: false,
+    advisorReview: false,
+    evaluate: false,
+    manageBoard: false,
+    scheduleDefense: false,
+    gradeDefense: false,
+    decide: false,
+    ...granted,
+  };
+}
+
 export function makeTcc(overrides: Partial<Tcc> = {}): Tcc {
   return {
     id: 't1',
@@ -15,13 +31,25 @@ export function makeTcc(overrides: Partial<Tcc> = {}): Tcc {
     documents: [],
     board: [],
     statusHistory: [],
+    defense: null,
+    previousDefenses: [],
     finalGrade: null,
     publicationAuthorized: false,
     publishedAt: null,
     createdAt: '2026-10-01T10:00:00-03:00',
     updatedAt: '2026-10-01T10:00:00-03:00',
     evaluationPeriodOpen: true,
-    permissions: { edit: false, upload: false, submit: false, advisorReview: false, evaluate: false, manageBoard: false },
+    permissions: {
+      edit: false,
+      upload: false,
+      submit: false,
+      advisorReview: false,
+      evaluate: false,
+      manageBoard: false,
+      scheduleDefense: false,
+      gradeDefense: false,
+      decide: false,
+    },
     ...overrides,
   };
 }
