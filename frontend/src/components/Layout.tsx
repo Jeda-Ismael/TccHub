@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { HOME_BY_ROLE } from '../auth/homeByRole';
 import { ROLE_LABELS, Role } from '../api/types';
+import { NotificationBell } from './NotificationBell';
 
 export function Layout() {
   const { user, activeRole, setActiveRole, logout } = useAuth();
@@ -25,6 +26,7 @@ export function Layout() {
         </Link>
         {user && activeRole && (
           <div className="topbar-user">
+            <NotificationBell />
             <span>{user.name}</span>
             {user.roles.length > 1 ? (
               <label className="role-switcher">

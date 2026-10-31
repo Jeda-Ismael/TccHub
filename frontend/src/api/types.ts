@@ -182,3 +182,34 @@ export const VERDICT_LABELS: Record<EvaluationVerdict, string> = {
   APPROVED: 'Aprovado',
   CORRECTIONS_REQUESTED: 'Correção solicitada',
 };
+
+export type NotificationType =
+  | 'TCC_SUBMITTED'
+  | 'BOARD_ASSIGNED'
+  | 'EVALUATION_OPEN'
+  | 'CORRECTIONS_REQUESTED'
+  | 'FINAL_REVIEW_PENDING'
+  | 'DEFENSE_PENDING'
+  | 'DEFENSE_SCHEDULED'
+  | 'GRADES_PENDING'
+  | 'DECISION_PENDING'
+  | 'TCC_APPROVED'
+  | 'TCC_REJECTED'
+  | 'PUBLICATION_REQUESTED';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  tccId: string | null;
+  /** Com que papel abrir o TCC. */
+  as: Role | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationList {
+  items: AppNotification[];
+  unreadCount: number;
+}

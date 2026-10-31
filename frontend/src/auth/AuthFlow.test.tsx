@@ -8,35 +8,43 @@ import { Layout } from '../components/Layout';
 import { Dashboard } from '../pages/Dashboard';
 import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
-import { authResponse, mockApi } from '../test/mockApi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { authResponse, mockApi as baseMockApi } from '../test/mockApi';
+
+/** O sininho do topo consulta o contador; aqui ele responde sempre "nenhum aviso". */
+const mockApi: typeof baseMockApi = (handler) =>
+  baseMockApi((config) => (config.url?.startsWith('/notifications') ? { status: 200, data: { unreadCount: 0, items: [] } } : handler(config)));
 
 function renderApp(initialPath: string) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <AuthProvider>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route element={<Layout />}>
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Dashboard />} />
+    <QueryClientProvider client={client}>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route element={<Layout />}>
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Dashboard />} />
+              </Route>
+              <Route element={<ProtectedRoute allow={['STUDENT']} />}>
+                <Route path="/student" element={<p>Tela do aluno</p>} />
+              </Route>
+              <Route element={<ProtectedRoute allow={['ADVISOR']} />}>
+                <Route path="/advisor" element={<p>Tela do orientador</p>} />
+              </Route>
+              <Route element={<ProtectedRoute allow={['EVALUATOR']} />}>
+                <Route path="/evaluator" element={<p>Tela do avaliador</p>} />
+              </Route>
+              <Route element={<ProtectedRoute allow={['COORDINATION']} />}>
+                <Route path="/coordination" element={<p>Tela da coordenação</p>} />
+              </Route>
             </Route>
-            <Route element={<ProtectedRoute allow={['STUDENT']} />}>
-              <Route path="/student" element={<p>Tela do aluno</p>} />
-            </Route>
-            <Route element={<ProtectedRoute allow={['ADVISOR']} />}>
-              <Route path="/advisor" element={<p>Tela do orientador</p>} />
-            </Route>
-            <Route element={<ProtectedRoute allow={['EVALUATOR']} />}>
-              <Route path="/evaluator" element={<p>Tela do avaliador</p>} />
-            </Route>
-            <Route element={<ProtectedRoute allow={['COORDINATION']} />}>
-              <Route path="/coordination" element={<p>Tela da coordenação</p>} />
-            </Route>
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    </AuthProvider>,
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>
+    </QueryClientProvider>,
   );
 }
 
