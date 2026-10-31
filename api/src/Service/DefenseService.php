@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Entity\BoardMember;
 use App\Entity\Defense;
 use App\Entity\Tcc;
 use App\Entity\User;
 use App\Enum\DefenseOutcome;
+use App\Enum\NotificationType;
 use App\Enum\TccStatus;
 use App\Exception\DomainRuleViolation;
 use App\Exception\TransitionNotAllowed;
+use App\Notification\Notifier;
 use App\Repository\SettingsRepository;
 use App\Util\Grade;
 use Symfony\Component\Clock\ClockInterface;
@@ -31,6 +34,7 @@ final class DefenseService
         private readonly TccLocker $locker,
         private readonly ClockInterface $clock,
         #[Autowire(param: 'app.timezone')] private readonly string $timezone,
+        private readonly Notifier $notifier,
     ) {
     }
 
@@ -38,7 +42,18 @@ final class DefenseService
     public function schedule(Tcc $tcc, \DateTimeImmutable $at, ?string $location, ?string $meetingUrl, User $by): void
     {
         $this->locker->run($tcc, function () use ($tcc, $at, $location, $meetingUrl, $by): void {
-            $this->currentDefense($tcc)->schedule($at, $location, $meetingUrl, $by);
+            $defense = $this->currentDefense($tcc);
+            $rescheduling = $defense->isScheduled();
+            $defense->schedule($at, $location, $meetingUrl, $by);
+
+            $where = implode(' · ', array_filter([$defense->getLocation(), $defense->getMeetingUrl()]));
+            $this->notifier->notify(
+                NotificationType::DefenseScheduled,
+                $tcc,
+                [$tcc->getStudent(), $tcc->getAdvisor(), ...$tcc->getBoardMembers()->map(static fn (BoardMember $m): User => $m->getEvaluator())],
+                $rescheduling ? 'Defesa reagendada' : 'Defesa agendada',
+                \sprintf('"%s": %s (%s).', $tcc->getTitle(), $this->formatDate($at), $where),
+            );
         });
     }
 
@@ -54,7 +69,7 @@ final class DefenseService
                 throw new DomainRuleViolation('A defesa ainda não foi agendada.');
             }
             if (!$defense->hasStartedAt($this->clock->now())) {
-                throw new DomainRuleViolation(\sprintf('As notas podem ser lançadas a partir do horário da defesa (%s).', $defense->getScheduledAt()?->setTimezone(new \DateTimeZone($this->timezone))->format('d/m/Y \à\s H:i')));
+                throw new DomainRuleViolation(\sprintf('As notas podem ser lançadas a partir do horário da defesa (%s).', $this->formatDate($defense->getScheduledAt())));
             }
 
             $member = $tcc->findBoardMember($evaluator)
@@ -120,6 +135,11 @@ final class DefenseService
             str_replace('.', ',', $final),
             str_replace('.', ',', $passing),
         ));
+    }
+
+    private function formatDate(?\DateTimeImmutable $at): string
+    {
+        return (string) $at?->setTimezone(new \DateTimeZone($this->timezone))->format('d/m/Y \à\s H:i');
     }
 
     private function currentDefense(Tcc $tcc): Defense

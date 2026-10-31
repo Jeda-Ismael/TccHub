@@ -12,6 +12,7 @@ enum NotificationType: string
     case EvaluationOpen = 'EVALUATION_OPEN';
     case CorrectionsRequested = 'CORRECTIONS_REQUESTED';
     case FinalReviewPending = 'FINAL_REVIEW_PENDING';
+    case DefensePending = 'DEFENSE_PENDING';
     case DefenseScheduled = 'DEFENSE_SCHEDULED';
     case GradesPending = 'GRADES_PENDING';
     case DecisionPending = 'DECISION_PENDING';

@@ -9,11 +9,13 @@ use App\Entity\Tcc;
 use App\Entity\ThematicArea;
 use App\Entity\User;
 use App\Enum\EvaluationVerdict;
+use App\Enum\NotificationType;
 use App\Enum\PeriodType;
 use App\Enum\Role;
 use App\Enum\TccStatus;
 use App\Exception\DomainRuleViolation;
 use App\Exception\TransitionNotAllowed;
+use App\Notification\Notifier;
 use App\Repository\SettingsRepository;
 use App\Repository\TccRepository;
 use App\Repository\UserRepository;
@@ -40,6 +42,7 @@ final class TccService
         private readonly PeriodChecker $periods,
         private readonly DocumentStorage $storage,
         private readonly TccLocker $locker,
+        private readonly Notifier $notifier,
     ) {
     }
 
@@ -194,11 +197,17 @@ final class TccService
                     $tcc->removeBoardMember($member->getEvaluator());
                 }
             }
+            $added = [];
             foreach ($wanted as $evaluator) {
                 if (null === $tcc->findBoardMember($evaluator)) {
                     $tcc->addBoardMember($evaluator);
+                    $added[] = $evaluator;
                 }
             }
+            $this->notifier->notify(NotificationType::BoardAssigned, $tcc, $added,
+                'Você foi incluído numa banca',
+                \sprintf('Você faz parte da banca de "%s", de %s.%s', $tcc->getTitle(), $tcc->getStudent()->getName(),
+                    TccStatus::SentToEvaluation === $tcc->getStatus() ? ' O TCC já está aguardando o seu parecer.' : ''));
 
             if (TccStatus::SentToEvaluation === $tcc->getStatus()) {
                 $this->closeRoundIfComplete($tcc);
