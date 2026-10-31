@@ -1,5 +1,6 @@
 import { Tcc } from '../api/types';
 import { StatusBadge } from './StatusBadge';
+import { formatDateTime } from '../utils/dates';
 
 function formatSize(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -37,7 +38,7 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
           <span className="muted">
             {' '}
             · {tcc.document.originalName} · {formatSize(tcc.document.sizeBytes)} · enviado em{' '}
-            {new Date(tcc.document.uploadedAt).toLocaleString('pt-BR')}
+            {formatDateTime(tcc.document.uploadedAt)}
           </span>
           {tcc.documents.length > 1 && (
             <details style={{ marginTop: '0.5rem' }}>
@@ -48,7 +49,7 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
                     <a href={doc.downloadUrl} target="_blank" rel="noreferrer">
                       Versão {doc.version}
                     </a>
-                    <span className="muted"> · {new Date(doc.uploadedAt).toLocaleString('pt-BR')}</span>
+                    <span className="muted"> · {formatDateTime(doc.uploadedAt)}</span>
                   </li>
                 ))}
               </ul>

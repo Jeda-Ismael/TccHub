@@ -91,9 +91,9 @@ final class TccView implements ResetInterface
             )),
             'finalGrade' => self::number($tcc->getFinalGrade()),
             'publicationAuthorized' => $tcc->isPublicationAuthorized(),
-            'publishedAt' => $tcc->getPublishedAt()?->format(\DATE_ATOM),
-            'createdAt' => $tcc->getCreatedAt()->format(\DATE_ATOM),
-            'updatedAt' => $tcc->getUpdatedAt()->format(\DATE_ATOM),
+            'publishedAt' => $this->date($tcc->getPublishedAt()),
+            'createdAt' => $this->date($tcc->getCreatedAt()),
+            'updatedAt' => $this->date($tcc->getUpdatedAt()),
             'evaluationPeriodOpen' => $this->isEvaluationPeriodOpen(),
             'permissions' => [
                 'edit' => $this->authorization->isGranted(TccVoter::EDIT, $tcc),
@@ -197,7 +197,7 @@ final class TccView implements ResetInterface
             'version' => $document->getVersion(),
             'originalName' => $document->getOriginalName(),
             'sizeBytes' => $document->getSizeBytes(),
-            'uploadedAt' => $document->getUploadedAt()->format(\DATE_ATOM),
+            'uploadedAt' => $this->date($document->getUploadedAt()),
             'downloadUrl' => $this->signer->sign($url, new \DateTimeImmutable('+'.self::DOWNLOAD_LINK_TTL.' seconds')),
         ];
     }
@@ -212,7 +212,7 @@ final class TccView implements ResetInterface
             'transition' => $entry->getTransition(),
             'comment' => $entry->getComment(),
             'changedBy' => null === $entry->getChangedBy() ? null : UserView::summary($entry->getChangedBy()),
-            'createdAt' => $entry->getCreatedAt()->format(\DATE_ATOM),
+            'createdAt' => $this->date($entry->getCreatedAt()),
         ];
     }
 }

@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { apiErrorMessage } from '../api/client';
 import { useDecide, useGradeDefense, useScheduleDefense } from '../api/hooks';
 import { Defense, DefenseOutcome, Tcc } from '../api/types';
+import { formatDate, formatLongDateTime } from '../utils/dates';
 
 const OUTCOME_LABELS: Record<DefenseOutcome, string> = {
   PENDING: 'Em andamento',
@@ -18,10 +19,6 @@ const OUTCOME_CLASS: Record<DefenseOutcome, string> = {
 /** Nota com vírgula e duas casas: 8.5 → "8,50". */
 export function formatGrade(grade: number | null): string {
   return grade === null ? '—' : grade.toFixed(2).replace('.', ',');
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
 }
 
 /**
@@ -58,7 +55,7 @@ export function DefenseSection({ tcc }: { tcc: Tcc }) {
             {previousDefenses.map((d) => (
               <li key={d.attempt}>
                 Tentativa {d.attempt}: média {formatGrade(d.finalGrade)} · {OUTCOME_LABELS[d.outcome]}
-                {d.scheduledAt && <span className="muted"> · {new Date(d.scheduledAt).toLocaleDateString('pt-BR')}</span>}
+                {d.scheduledAt && <span className="muted"> · {formatDate(d.scheduledAt)}</span>}
               </li>
             ))}
           </ul>
@@ -76,7 +73,7 @@ function DefenseInfo({ defense }: { defense: Defense }) {
   return (
     <div className="defense-info">
       <p>
-        <strong>{formatDateTime(defense.scheduledAt)}</strong>
+        <strong>{formatLongDateTime(defense.scheduledAt)}</strong>
       </p>
       {defense.location && <p>Local: {defense.location}</p>}
       {defense.meetingUrl && (

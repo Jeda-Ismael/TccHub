@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DefenseSection, formatGrade } from './DefenseSection';
+import { formatDateTime, formatLongDateTime } from '../utils/dates';
 import { Defense, Tcc } from '../api/types';
 import { makeTcc, perms } from '../test/fixtures';
 import { mockApi } from '../test/mockApi';
@@ -38,6 +39,11 @@ describe('seção da defesa', () => {
   it('formata notas com vírgula e duas casas', () => {
     expect(formatGrade(8.5)).toBe('8,50');
     expect(formatGrade(null)).toBe('—');
+  });
+
+  it('mostra a data no fuso da instituição, não no do navegador', () => {
+    expect(formatLongDateTime('2026-11-20T14:00:00-03:00')).toBe('sexta-feira, 20/11/2026 às 14:00');
+    expect(formatDateTime('2026-11-20T23:30:00-03:00')).toBe('20/11/2026, 23:30');
   });
 
   it('não aparece antes de existir defesa', () => {

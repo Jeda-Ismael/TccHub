@@ -1,4 +1,5 @@
 import { STATUS_LABELS, TccStatusHistoryEntry } from '../api/types';
+import { formatDateTime } from '../utils/dates';
 
 export function StatusHistoryTimeline({ entries }: { entries: TccStatusHistoryEntry[] }) {
   if (!entries.length) return null;
@@ -14,7 +15,7 @@ export function StatusHistoryTimeline({ entries }: { entries: TccStatusHistoryEn
               <strong>{STATUS_LABELS[entry.toStatus]}</strong>
             </div>
             <div className="muted">
-              {new Date(entry.createdAt).toLocaleString('pt-BR')}
+              {formatDateTime(entry.createdAt)}
               {entry.changedBy ? ` · ${entry.changedBy.name}` : ''}
             </div>
             {entry.comment && <div className="muted">"{entry.comment}"</div>}

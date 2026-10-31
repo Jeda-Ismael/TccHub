@@ -110,6 +110,9 @@ final class DefenseFlowTest extends ApiTestCase
         self::assertEquals(8.5, $tcc['finalGrade']);
         self::assertSame('PASSED', $tcc['defense']['outcome']);
         self::assertSame('Defesa aprovada com média 8,50.', array_reverse($tcc['statusHistory'])[0]['comment']);
+        // Todos os horários saem no fuso da instituição, para a tela mostrar como estão
+        self::assertStringEndsWith('-03:00', $tcc['statusHistory'][0]['createdAt']);
+        self::assertStringEndsWith('-03:00', $tcc['document']['uploadedAt']);
 
         // O aluno vê o resultado e as notas de cada avaliador
         $this->request('GET', "/api/tcc/$id", token: $this->as($this->student));
