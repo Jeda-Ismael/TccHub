@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { Keyword, NotificationList, Role, Settings, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
+import { Keyword, NotificationList, RepositoryFilters, RepositoryPage, RepositoryTccDetail, Role, Settings, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
 
 // --- TCC ---
 /** TCCs visíveis com um papel: os próprios, os orientados, os das bancas ou todos. */
@@ -27,6 +27,7 @@ function useTccMutation<TInput>(fn: (input: TInput) => Promise<Tcc>) {
     onSuccess: (tcc) => {
       qc.setQueryData(['tcc', tcc.id], tcc);
       qc.invalidateQueries({ queryKey: ['tccs'] });
+      qc.invalidateQueries({ queryKey: ['repository'] });
     },
   });
 }
@@ -90,6 +91,32 @@ export function useDecide(id: string) {
   return useTccMutation(
     async (data: { action: 'new_defense' | 'reject'; comment: string }) => (await api.post<Tcc>(`/tcc/${id}/decision`, data)).data,
   );
+}
+
+export function useAuthorizePublication(id: string) {
+  return useTccMutation(async (authorized: boolean) => (await api.put<Tcc>(`/tcc/${id}/publication-authorization`, { authorized })).data);
+}
+
+/** true publica; false tira do repositório. */
+export function usePublish(id: string) {
+  return useTccMutation(async (publish: boolean) => (publish ? await api.post<Tcc>(`/tcc/${id}/publish`) : await api.delete<Tcc>(`/tcc/${id}/publish`)).data);
+}
+
+// --- Repositório ---
+export function useRepositorySearch(filters: RepositoryFilters) {
+  return useQuery({
+    queryKey: ['repository', 'search', filters],
+    queryFn: async () => (await api.get<RepositoryPage>('/repository', { params: filters })).data,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useRepositoryTcc(id?: string) {
+  return useQuery({
+    queryKey: ['repository', 'tcc', id],
+    queryFn: async () => (await api.get<RepositoryTccDetail>(`/repository/${id}`)).data,
+    enabled: !!id,
+  });
 }
 
 // --- Configurações ---

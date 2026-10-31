@@ -13,6 +13,8 @@ export function perms(granted: Partial<TccPermissions> = {}): TccPermissions {
     scheduleDefense: false,
     gradeDefense: false,
     decide: false,
+    authorizePublication: false,
+    publish: false,
     ...granted,
   };
 }
@@ -39,17 +41,7 @@ export function makeTcc(overrides: Partial<Tcc> = {}): Tcc {
     createdAt: '2026-10-01T10:00:00-03:00',
     updatedAt: '2026-10-01T10:00:00-03:00',
     evaluationPeriodOpen: true,
-    permissions: {
-      edit: false,
-      upload: false,
-      submit: false,
-      advisorReview: false,
-      evaluate: false,
-      manageBoard: false,
-      scheduleDefense: false,
-      gradeDefense: false,
-      decide: false,
-    },
+    permissions: perms(),
     ...overrides,
   };
 }
