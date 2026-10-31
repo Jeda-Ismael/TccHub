@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fases 0, 1 e 2 concluídas · Versão 5 · 2026-10
+> Status: decisões fechadas · Fases 0 a 4 concluídas · Versão 6 · 2026-10
 
 ---
 
@@ -65,7 +65,7 @@ flowchart LR
 | T6 | Symfony Workflow (`state_machine`) | `if`s no service | Transições, guards e histórico declarados e testáveis |
 | T7 | JWT 15 min + refresh token em cookie httpOnly | JWT 7 dias no `localStorage` | Mudança de papel vale em minutos; token vazado expira rápido |
 | T8 | Messenger com transporte Doctrine | RabbitMQ/Redis | Reaproveita o Postgres |
-| T9 | Flysystem em volume privado | Pasta pública `/uploads` | Download com checagem de permissão |
+| T9 | Storage em volume privado (`var/storage`, volume `uploads_data`) | Pasta pública `/uploads` | Download com checagem de permissão. Flysystem fica para quando houver S3/MinIO |
 | T10 | Busca full-text nativa do Postgres (`tsvector`, dicionário `portuguese`) | Elasticsearch/Meilisearch | Busca no repositório sem mais um serviço |
 | T11 | Sininho por *polling* (React Query, 30 s) | Mercure (SSE, já embutido no FrankenPHP) | Mais simples. Mercure fica como evolução |
 | T12 | `roles` como array JSON no usuário (padrão Symfony Security) | Tabela `user_roles` | Integra direto com `ROLE_*` e `isGranted` |
@@ -573,8 +573,8 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 | 0 · Infra ✅ | Compose, Dockerfile, Makefile, Symfony + `GET /api/health`, PHPStan/CS/PHPUnit, CI | `make up` sobe tudo; `make qa` verde |
 | 1 · Dados ✅ | Entidades, enums, migrations, fixtures base (Foundry + dama/doctrine-test-bundle) | `make db-reset` cria banco com 1 usuário por papel + 1 professor com 3 papéis |
 | 2 · Auth e papéis ✅ | Login, registro, refresh, `/me`, gestão de usuários e papéis, novo visual do login, seletor de papel, Vitest no frontend | Login e troca de papel funcionam no frontend. Os Voters de TCC ficaram para a Fase 4, junto com as rotas que eles protegem |
-| 3 · Cadastros | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
-| 4 · TCC até a banca | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `ADVISOR_FINAL_REVIEW` pelo frontend |
+| 3 · Cadastros ✅ | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
+| 4 · TCC até a banca ✅ | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `AWAITING_DEFENSE` pelo frontend (testado de ponta a ponta no navegador) |
 | 5 · Defesa | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação |
 | 6 · Notificações | Serviço `worker`, fila, e-mails, sininho, lembrete agendado | E-mails no Mailpit; contador no frontend |
 | 7 · Repositório | Autorização, publicação, busca full-text, download | Busca por palavra-chave retorna TCCs publicados |
@@ -591,6 +591,17 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - **Login com Google removido** do frontend junto com a rota `/oauth-callback` (segue no backlog).
 - **Throttling:** 5 tentativas de login por minuto (por e-mail + IP) e 5 cadastros a cada 10 minutos por IP. Nos testes, cada teste usa um IP aleatório para não esbarrar nos limites.
 - **Papel ativo** guardado no `localStorage` (preferência do navegador). O token de acesso fica só em memória; a sessão volta pelo cookie de refresh.
+
+## 14.2 Notas das Fases 3 e 4 (entregues juntas)
+
+- **Prazos:** a coordenação informa só a data; o prazo vale o dia inteiro no fuso da instituição (`app.timezone`, padrão `America/Sao_Paulo`).
+- **Catálogos:** nome único sem diferenciar maiúsculas; área ou palavra-chave em uso por algum TCC não pode ser excluída.
+- **Permissões** pelo vínculo com o TCC (`TccVoter`). Quem não participa do TCC recebe 404, para nem saber que ele existe. A resposta traz `permissions`, e a tela só mostra os botões permitidos.
+- **Ações fora do status atual** respondem 409 com a explicação (ex.: "A banca precisa ter de 2 a 3 avaliadores…").
+- **Recusar** (orientador reprovando, ou devolvendo na revisão final) e **pedir correções** (avaliador) exigem comentário.
+- **Aluno não vê pareceres parciais**: durante a avaliação, os votos aparecem como pendentes até a rodada fechar.
+- **Download do PDF**: link assinado de 5 minutos (`UriSigner`), gerado só para quem pode ver o TCC; serve num `<a href>` comum.
+- **Entrar em `AWAITING_DEFENSE`** já abre a 1ª tentativa de defesa (sem data); o agendamento e as notas são a Fase 5.
 
 ## 15. Backlog (fora do escopo)
 
