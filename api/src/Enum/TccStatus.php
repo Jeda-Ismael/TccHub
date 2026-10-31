@@ -21,6 +21,22 @@ enum TccStatus: string
     case Approved = 'APPROVED';
     case Rejected = 'REJECTED';
 
+    public function label(): string
+    {
+        return match ($this) {
+            self::Draft => 'Rascunho',
+            self::Submitted => 'Submetido',
+            self::Resubmitted => 'Reenviado',
+            self::SentToEvaluation => 'Em avaliação pela banca',
+            self::CorrectionsRequested => 'Correções solicitadas',
+            self::AdvisorFinalReview => 'Revisão final do orientador',
+            self::AwaitingDefense => 'Aguardando defesa',
+            self::AwaitingDecision => 'Aguardando decisão da coordenação',
+            self::Approved => 'Aprovado',
+            self::Rejected => 'Reprovado',
+        };
+    }
+
     public function isFinal(): bool
     {
         return self::Approved === $this || self::Rejected === $this;

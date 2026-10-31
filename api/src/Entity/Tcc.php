@@ -157,6 +157,18 @@ class Tcc
         $this->status = $status;
     }
 
+    /** Marcação usada pelo Symfony Workflow (config/packages/workflow.yaml). */
+    public function getMarking(): string
+    {
+        return $this->status->value;
+    }
+
+    /** @param array<string, mixed> $context */
+    public function setMarking(string $marking, array $context = []): void
+    {
+        $this->status = TccStatus::from($marking);
+    }
+
     public function getStudent(): User
     {
         return $this->student;

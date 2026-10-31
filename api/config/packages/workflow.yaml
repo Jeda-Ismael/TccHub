@@ -1,0 +1,68 @@
+# Ciclo de vida do TCC. Ver docs/ARQUITETURA.md §7.
+# Quem pode disparar cada transição é decidido pelos Voters (src/Security/Voter);
+# as condições de negócio ficam nos guards (src/Workflow/TccWorkflowSubscriber).
+framework:
+    workflows:
+        tcc:
+            type: state_machine
+            audit_trail:
+                enabled: '%kernel.debug%'
+            marking_store:
+                type: method
+                property: marking
+            supports:
+                - App\Entity\Tcc
+            initial_marking: DRAFT
+            places:
+                - DRAFT
+                - SUBMITTED
+                - RESUBMITTED
+                - SENT_TO_EVALUATION
+                - CORRECTIONS_REQUESTED
+                - ADVISOR_FINAL_REVIEW
+                - AWAITING_DEFENSE
+                - AWAITING_DECISION
+                - APPROVED
+                - REJECTED
+            transitions:
+                # Aluno
+                submit:
+                    from: DRAFT
+                    to: SUBMITTED
+                resubmit:
+                    from: CORRECTIONS_REQUESTED
+                    to: RESUBMITTED
+                # Orientador
+                advisor_approve:
+                    from: [SUBMITTED, RESUBMITTED]
+                    to: SENT_TO_EVALUATION
+                advisor_reject:
+                    from: [SUBMITTED, RESUBMITTED]
+                    to: REJECTED
+                # Sistema, quando todos da banca deram parecer
+                board_approve:
+                    from: SENT_TO_EVALUATION
+                    to: ADVISOR_FINAL_REVIEW
+                board_request_corrections:
+                    from: SENT_TO_EVALUATION
+                    to: CORRECTIONS_REQUESTED
+                # Orientador, depois da banca
+                final_approve:
+                    from: ADVISOR_FINAL_REVIEW
+                    to: AWAITING_DEFENSE
+                final_request_corrections:
+                    from: ADVISOR_FINAL_REVIEW
+                    to: CORRECTIONS_REQUESTED
+                # Defesa (Fase 5)
+                defense_pass:
+                    from: AWAITING_DEFENSE
+                    to: APPROVED
+                defense_fail:
+                    from: AWAITING_DEFENSE
+                    to: AWAITING_DECISION
+                allow_new_defense:
+                    from: AWAITING_DECISION
+                    to: AWAITING_DEFENSE
+                coordination_reject:
+                    from: AWAITING_DECISION
+                    to: REJECTED
