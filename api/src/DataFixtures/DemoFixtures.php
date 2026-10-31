@@ -21,6 +21,7 @@ use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\File;
 
 /**
@@ -29,7 +30,8 @@ use Symfony\Component\HttpFoundation\File\File;
  * (aluno@, aluno2@...) ficam livres para testar o fluxo do zero.
  *
  * Os TCCs são montados direto pelas entidades (com histórico e PDF de verdade),
- * sem passar pelas regras de prazo: é só para ter o que mostrar.
+ * sem passar pelo Workflow nem pelas regras de prazo: é só para ter o que
+ * mostrar. Limitação conhecida: as datas do histórico são as do momento da carga.
  */
 final class DemoFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
@@ -44,6 +46,7 @@ final class DemoFixtures extends Fixture implements DependentFixtureInterface, F
     public function __construct(
         private readonly DocumentStorage $storage,
         private readonly RepositoryIndex $index,
+        #[Autowire(param: 'app.timezone')] private readonly string $timezone,
     ) {
     }
 
@@ -91,7 +94,7 @@ final class DemoFixtures extends Fixture implements DependentFixtureInterface, F
         $student = $this->student('Júlia Ferreira');
         $tcc = $this->tcc($manager, 'Gamificação no ensino de lógica de programação', 'Experimento com turmas do primeiro período usando missões e rankings.', $student, $professor, ['Interação Humano-Computador'], ['educação']);
         $this->toDefense($tcc, $student, $professor, [$evaluator1, $evaluator2]);
-        $tcc->getCurrentDefense()?->schedule(new \DateTimeImmutable('+7 days 14:00'), 'Auditório do bloco B', null, $professor);
+        $tcc->getCurrentDefense()?->schedule(new \DateTimeImmutable('+7 days 14:00', new \DateTimeZone($this->timezone)), 'Auditório do bloco B', null, $professor);
         $manager->persist($tcc);
 
         $manager->flush();

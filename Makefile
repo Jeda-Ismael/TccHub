@@ -78,12 +78,15 @@ test-db: ## Prepara o banco de testes (hubtcc_test)
 test: test-db ## Roda os testes. Ex.: make test c='--filter=Health'
 	@$(PHP_CONT) bin/phpunit $(c)
 
-coverage: test-db ## Testes com relatório de cobertura em api/var/coverage
+coverage: test-db ## Testes com relatório HTML de cobertura, copiado para api/var/coverage
 	@$(DOCKER_COMP) exec -e XDEBUG_MODE=off php php -d pcov.enabled=1 -d pcov.directory=src bin/phpunit --coverage-html var/coverage --coverage-text
+	@# var/ fica num volume do container: copia o relatório para a pasta do projeto
+	@$(DOCKER_COMP) cp php:/app/var/coverage ./api/var/
+	@echo "Relatório: api/var/coverage/index.html"
 
 test-coverage: test-db ## Testes da API exigindo cobertura mínima de 85% (usado na CI)
 	@$(DOCKER_COMP) exec -e XDEBUG_MODE=off php php -d pcov.enabled=1 -d pcov.directory=src bin/phpunit --coverage-clover var/coverage/clover.xml
-	@$(PHP_CONT) bin/coverage-check var/coverage/clover.xml 85
+	@$(PHP_CONT) php bin/coverage-check var/coverage/clover.xml 85
 
 phpstan: ## Análise estática (PHPStan nível 8)
 	@$(CONSOLE) cache:warmup --env=test -q

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { mockApi } from '../../test/mockApi';
 import { makeTcc, perms } from '../../test/fixtures';
@@ -54,8 +54,10 @@ describe('orientador', () => {
 
     expect(await screen.findByRole('heading', { name: 'Revisão do orientador' })).toBeInTheDocument();
     // Histórico do mais recente para o mais antigo
-    expect(screen.getByText('02/10/2026, 11:30')).toBeInTheDocument();
-    expect(screen.getByText('"TCC criado"')).toBeInTheDocument();
+    const history = screen.getByRole('heading', { name: 'Histórico' }).parentElement!;
+    const recent = within(history).getByText('02/10/2026, 11:30');
+    const oldest = within(history).getByText('"TCC criado"');
+    expect(recent.compareDocumentPosition(oldest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Aprovar e enviar à banca' }));
 

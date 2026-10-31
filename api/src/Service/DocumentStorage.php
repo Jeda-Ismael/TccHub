@@ -20,7 +20,7 @@ final class DocumentStorage
     private readonly Filesystem $filesystem;
 
     public function __construct(
-        #[Autowire('%kernel.project_dir%/var/storage')] private readonly string $directory,
+        #[Autowire(param: 'app.storage_dir')] private readonly string $directory,
     ) {
         $this->filesystem = new Filesystem();
     }

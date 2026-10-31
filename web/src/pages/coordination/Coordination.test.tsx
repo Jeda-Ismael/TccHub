@@ -262,9 +262,23 @@ describe('coordenação: áreas e palavras-chave', () => {
 
     await user.click(within(keywords).getByRole('button', { name: 'Excluir' }));
     await user.click(within(keywords).getByRole('button', { name: 'Cancelar' }));
-    await user.click(within(keywords).getByRole('button', { name: 'Excluir' }));
+    expect(within(keywords).getByText('nuvem')).toBeInTheDocument();
+  });
+
+  it('erro ao excluir aparece no card', async () => {
+    mockApi((config) => {
+      if (config.url === '/keywords' && config.method === 'get') return { status: 200, data: [{ id: 'k1', name: 'nuvem', tccCount: 0 }] };
+      if (config.url === '/thematic-areas') return { status: 200, data: [] };
+      return { status: 409, data: { statusCode: 409, message: 'Não é possível excluir: esta palavra-chave está em uso por 1 TCC(s).' } };
+    });
+    const user = userEvent.setup();
+    renderPage(<Catalogs />);
+
+    const keywords = (await screen.findByRole('heading', { name: 'Palavras-chave' })).parentElement!;
+    await user.click(await within(keywords).findByRole('button', { name: 'Excluir' }));
     await user.click(within(keywords).getByRole('button', { name: 'Confirmar' }));
-    expect(await within(keywords).findAllByText('Já existe uma palavra-chave com este nome.')).not.toHaveLength(0);
+
+    expect(await within(keywords).findByText('Não é possível excluir: esta palavra-chave está em uso por 1 TCC(s).')).toBeInTheDocument();
   });
 });
 
@@ -279,8 +293,14 @@ describe('coordenação: usuários', () => {
     return mockApi((config) => {
       if (config.url === '/auth/refresh') return { status: 200, data: authResponse(['COORDINATION']) };
       if (config.method === 'get') return { status: 200, data: users };
-      if (failWrites) return { status: 422, data: { statusCode: 422, message: 'Você não pode excluir a si mesmo.' } };
-      return { status: 200, data: users[1] };
+      if (!failWrites) return { status: 200, data: users[1] };
+      const messages: Record<string, string> = {
+        put: 'Aluno não combina com outros papéis.',
+        delete: 'Este usuário tem TCCs e não pode ser excluído.',
+        post: 'Já existe um usuário com este e-mail.',
+      };
+      const message = messages[config.method ?? ''];
+      return { status: 422, data: { statusCode: 422, message } };
     });
   }
 
@@ -330,18 +350,19 @@ describe('coordenação: usuários', () => {
     await user.click(within(ana).getByRole('button', { name: 'Cancelar' }));
     await user.click(within(ana).getByRole('button', { name: 'Editar' }));
     await user.click(within(ana).getByRole('button', { name: 'Salvar' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Você não pode excluir a si mesmo.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Aluno não combina com outros papéis.');
     await user.click(within(ana).getByRole('button', { name: 'Cancelar' }));
 
     await user.click(within(ana).getByRole('button', { name: 'Excluir' }));
     await user.click(within(ana).getByRole('button', { name: 'Cancelar' }));
     await user.click(within(ana).getByRole('button', { name: 'Excluir' }));
     await user.click(within(ana).getByRole('button', { name: 'Confirmar' }));
+    expect(await screen.findByText('Este usuário tem TCCs e não pode ser excluído.')).toHaveAttribute('role', 'alert');
 
     await user.type(screen.getByLabelText('Nome'), 'X');
     await user.type(screen.getByLabelText('E-mail'), 'x@hubtcc.dev');
     await user.type(screen.getByLabelText('Senha inicial'), 'senha-forte');
     await user.click(screen.getByRole('button', { name: 'Criar usuário' }));
-    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2));
+    expect(await screen.findByText('Já existe um usuário com este e-mail.')).toHaveAttribute('role', 'alert');
   });
 });

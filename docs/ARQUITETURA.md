@@ -118,12 +118,13 @@ frankenphp_prod → composer --no-dev, cache warmup (pronto para o futuro)
 |---------|-----|
 | `make up` / `make down` | Sobe / derruba |
 | `make sh` | Shell no container `php` |
-| `make db-reset` | Recria banco + migrations + fixtures básicas (1 usuário por papel) |
-| `make fixtures` | Recarrega só as fixtures (apaga os dados atuais) |
-| `make demo` | `db-reset` + fixtures de demonstração (TCCs em todos os status) |
+| `make db-reset` | Recria banco + migrations + fixtures do grupo `base` (usuários, catálogos, prazos) |
+| `make fixtures` | Recarrega só o grupo `base` (apaga os dados atuais) |
+| `make demo` | `up` + migrations + grupo `demo`: TCCs em revisão, na banca, com defesa agendada e publicados |
 | `make migration` | Gera migration a partir das entidades |
-| `make test` / `make coverage` | PHPUnit / relatório HTML de cobertura |
-| `make qa` | PHPStan + CS-Fixer + testes backend + testes frontend |
+| `make test` / `make coverage` | PHPUnit / relatório HTML de cobertura (copiado para `api/var/coverage`) |
+| `make test-coverage` / `make web-coverage` | Testes exigindo cobertura mínima de 85% (API / web) |
+| `make qa` | CS-Fixer + PHPStan + testes e cobertura da API e da web (o mesmo que a CI) |
 | `make logs` | Logs de todos os serviços |
 
 ---

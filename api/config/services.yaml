@@ -9,6 +9,8 @@
 parameters:
     # Fuso da instituição: usado para interpretar datas sem hora (prazos)
     app.timezone: 'America/Sao_Paulo'
+    # Onde ficam os PDFs (no Docker: o volume uploads_data)
+    app.storage_dir: '%kernel.project_dir%/var/storage'
 
 services:
     # default configuration for services in *this* file
@@ -29,6 +31,10 @@ services:
             $debug: '%kernel.debug%'
 
 when@test:
+    parameters:
+        # Os testes gravam PDFs em outra pasta, limpa a cada execução (tests/bootstrap.php):
+        # o rollback do banco não apaga arquivos e eles se misturariam aos uploads reais
+        app.storage_dir: '%kernel.project_dir%/var/storage_test'
     services:
         # Conta as consultas SQL para os testes de desempenho (N+1)
         App\Tests\Support\QueryCounter:

@@ -14,7 +14,7 @@ use Zenstruck\Foundry\Story;
 /**
  * Dados mínimos para usar o sistema em desenvolvimento: um usuário por papel
  * (senha 123456), áreas temáticas, palavras-chave e períodos abertos.
- * TCCs de exemplo em todos os status ficam no DemoStory (Fase 8).
+ * TCCs de exemplo ficam no App\DataFixtures\DemoFixtures (`make demo`).
  */
 final class BaseStory extends Story
 {

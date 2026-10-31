@@ -105,7 +105,7 @@ docker compose exec php bin/console doctrine:migrations:migrate -n
 | `make sh` | Shell no container da API |
 | `make db-reset` | Recria o banco com os dados base |
 | `make test` | Testes da API |
-| `make coverage` | Testes da API com relatório HTML em `api/var/coverage` |
+| `make coverage` | Testes da API com relatório HTML, copiado para `api/var/coverage/index.html` |
 | `make web-test` | Tipos e testes da web |
 | `make qa` | Tudo o que a CI roda: estilo, PHPStan, testes e cobertura mínima (API e web) |
 
