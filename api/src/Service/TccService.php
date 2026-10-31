@@ -127,7 +127,7 @@ final class TccService
             $this->em->flush();
             $this->index->sync($tcc);
 
-            if ($authorized) {
+            if ($authorized && !$this->hasUnreadPublicationRequest($tcc)) {
                 $this->notifier->notify(NotificationType::PublicationRequested, $tcc, $this->users->findByRole(Role::Coordination),
                     'Publicação autorizada pelo aluno',
                     \sprintf('%s autorizou a publicação de "%s" no repositório.', $tcc->getStudent()->getName(), $tcc->getTitle()));
@@ -137,6 +137,15 @@ final class TccService
                     \sprintf('%s retirou a autorização de "%s", que saiu do repositório.', $tcc->getStudent()->getName(), $tcc->getTitle()));
             }
         });
+    }
+
+    /** Evita repetir o pedido no sininho quando o aluno autoriza, retira e autoriza de novo. */
+    private function hasUnreadPublicationRequest(Tcc $tcc): bool
+    {
+        return (bool) $this->em->getConnection()->fetchOne(
+            'SELECT 1 FROM notifications WHERE tcc_id = ? AND type = ? AND read_at IS NULL LIMIT 1',
+            [$tcc->getId()->toRfc4122(), NotificationType::PublicationRequested->value],
+        );
     }
 
     /** A coordenação publica (exige a autorização do aluno) ou tira do repositório. */

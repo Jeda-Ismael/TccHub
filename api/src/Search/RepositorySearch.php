@@ -69,7 +69,7 @@ final class RepositorySearch
 
         $ids = array_map(static fn (array $row): string => (string) $row['id'], $rows);
 
-        return ['items' => $this->load($ids), 'total' => (int) $rows[0]['total']];
+        return ['items' => $this->load($ids, withDocuments: false), 'total' => (int) $rows[0]['total']];
     }
 
     /** @return list<int> anos com TCC publicado, do mais recente ao mais antigo */
@@ -85,7 +85,7 @@ final class RepositorySearch
 
     public function findPublished(Uuid $id): ?Tcc
     {
-        $tcc = $this->load([$id->toRfc4122()])[0] ?? null;
+        $tcc = $this->load([$id->toRfc4122()], withDocuments: true)[0] ?? null;
 
         return null !== $tcc && $tcc->isPublished() ? $tcc : null;
     }
@@ -97,21 +97,23 @@ final class RepositorySearch
      *
      * @return list<Tcc>
      */
-    private function load(array $ids): array
+    private function load(array $ids, bool $withDocuments): array
     {
-        /** @var list<Tcc> $tccs */
-        $tccs = $this->em->createQueryBuilder()
-            ->select('t', 's', 'adv', 'a', 'k', 'd')
+        $qb = $this->em->createQueryBuilder()
+            ->select('t', 's', 'adv', 'a', 'k')
             ->from(Tcc::class, 't')
             ->join('t.student', 's')
             ->leftJoin('t.advisor', 'adv')
             ->leftJoin('t.thematicAreas', 'a')
             ->leftJoin('t.keywords', 'k')
-            ->leftJoin('t.documents', 'd')
             ->where('t.id IN (:ids)')
-            ->setParameter('ids', $ids, ArrayParameterType::STRING)
-            ->getQuery()
-            ->getResult();
+            ->setParameter('ids', $ids, ArrayParameterType::STRING);
+        // A lista não mostra o PDF: as versões só vêm no detalhe
+        if ($withDocuments) {
+            $qb->addSelect('d')->leftJoin('t.documents', 'd');
+        }
+        /** @var list<Tcc> $tccs */
+        $tccs = $qb->getQuery()->getResult();
 
         $byId = [];
         foreach ($tccs as $tcc) {

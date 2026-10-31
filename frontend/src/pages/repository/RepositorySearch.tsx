@@ -44,6 +44,19 @@ export function RepositorySearch() {
   const hasFilters = Object.keys(filters).some((key) => key !== 'page');
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const page = filters.page ?? 1;
+  // Ano da URL que não tem mais TCC (ex.: link antigo): continua aparecendo no select
+  const years = data ? [...new Set([...data.years, ...(filters.year ? [Number(filters.year)] : [])])].sort((a, b) => b - a) : [];
+
+  // Página além do fim (ex.: um TCC saiu do repositório): vai para a última
+  useEffect(() => {
+    if (data && !isFetching && data.total > 0 && page > pages) {
+      setParams((current) => {
+        const next = new URLSearchParams(current);
+        next.set('page', String(pages));
+        return next;
+      });
+    }
+  }, [data, isFetching, page, pages, setParams]);
 
   return (
     <div>
@@ -83,7 +96,7 @@ export function RepositorySearch() {
           </select>
           <select aria-label="Ano" value={filters.year ?? ''} onChange={(e) => update({ year: e.target.value })}>
             <option value="">Todos os anos</option>
-            {data?.years.map((y) => (
+            {years.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>

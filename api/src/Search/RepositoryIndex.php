@@ -51,7 +51,21 @@ final class RepositoryIndex
         $this->connection->executeStatement(\sprintf(self::UPSERT, 'AND t.id = ?'), [$id]);
     }
 
-    /** Refaz o índice de todos os publicados (ex.: depois de renomear uma palavra-chave). */
+    /**
+     * Reindexa os TCCs publicados que usam esta área ou palavra-chave (depois de renomear).
+     *
+     * @param 'tcc_keywords'|'tcc_thematic_areas' $joinTable
+     * @param 'keyword_id'|'thematic_area_id'     $column
+     */
+    public function syncUsing(string $joinTable, string $column, string $itemId): void
+    {
+        $this->connection->executeStatement(
+            \sprintf(self::UPSERT, \sprintf('AND t.id IN (SELECT tcc_id FROM %s WHERE %s = ?)', $joinTable, $column)),
+            [$itemId],
+        );
+    }
+
+    /** Refaz o índice de todos os publicados (manutenção). */
     public function rebuild(): void
     {
         $this->connection->executeStatement('DELETE FROM tcc_search WHERE tcc_id NOT IN (SELECT id FROM tccs WHERE published_at IS NOT NULL)');

@@ -26,6 +26,7 @@ use Symfony\Component\Uid\Uuid;
 final class NotificationController extends AbstractController
 {
     private const LIMIT = 30;
+    private const COORDINATION_TASKS = [NotificationType::DecisionPending, NotificationType::PublicationRequested, NotificationType::PublicationWithdrawn];
 
     public function __construct(
         private readonly NotificationRepository $notifications,
@@ -93,8 +94,9 @@ final class NotificationController extends AbstractController
             // Com que papel abrir o TCC (a tela muda conforme o vínculo de quem recebeu)
             'as' => null === $tcc ? null : match (true) {
                 $tcc->isAuthoredBy($user) => Role::Student->apiName(),
-                // A decisão é tarefa da coordenação, mesmo para quem também está na banca
-                NotificationType::DecisionPending === $n->getType() && $user->hasRole(Role::Coordination) => Role::Coordination->apiName(),
+                // Tarefas da coordenação (decidir, publicar) abrem na tela da coordenação, mesmo
+                // para quem também orienta ou está na banca do TCC
+                \in_array($n->getType(), self::COORDINATION_TASKS, true) && $user->hasRole(Role::Coordination) => Role::Coordination->apiName(),
                 isset($boardTccIds[$tcc->getId()->toRfc4122()]) => Role::Evaluator->apiName(),
                 $tcc->getAdvisor()?->getId()->equals($user->getId()) ?? false => Role::Advisor->apiName(),
                 $user->hasRole(Role::Coordination) => Role::Coordination->apiName(),

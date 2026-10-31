@@ -27,6 +27,9 @@ use Symfony\Component\Uid\Uuid;
 #[Route('/repository')]
 final class RepositoryController extends AbstractController
 {
+    /** Teto da paginação: evita estouro no OFFSET (12 por página dá 120 mil TCCs). */
+    private const MAX_PAGE = 10_000;
+
     public function __construct(
         private readonly RepositorySearch $search,
         private readonly DocumentLink $links,
@@ -42,8 +45,8 @@ final class RepositoryController extends AbstractController
         if (mb_strlen($text) > 200) {
             throw new UnprocessableEntityHttpException('A busca pode ter no máximo 200 caracteres.');
         }
-        $year = '' === $query->getString('year') ? null : $query->getInt('year');
-        $page = max(1, $query->getInt('page', 1));
+        $year = self::intFilter($query->getString('year'), 1900, 9999, 'Ano inválido no filtro.');
+        $page = self::intFilter($query->getString('page'), 1, self::MAX_PAGE, 'Página inválida.') ?? 1;
 
         $result = $this->search->search(
             $text,
@@ -96,6 +99,19 @@ final class RepositoryController extends AbstractController
             'finalGrade' => null === $tcc->getFinalGrade() ? null : (float) $tcc->getFinalGrade(),
             'publishedAt' => $tcc->getPublishedAt()?->setTimezone(new \DateTimeZone($this->timezone))->format(\DATE_ATOM),
         ];
+    }
+
+    private static function intFilter(string $value, int $min, int $max, string $message): ?int
+    {
+        if ('' === $value) {
+            return null;
+        }
+        $int = filter_var($value, \FILTER_VALIDATE_INT, ['options' => ['min_range' => $min, 'max_range' => $max]]);
+        if (false === $int) {
+            throw new UnprocessableEntityHttpException($message);
+        }
+
+        return $int;
     }
 
     private static function uuidFilter(string $value, string $label): ?Uuid

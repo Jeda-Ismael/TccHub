@@ -68,10 +68,20 @@ final class CatalogManager
     public function rename(ThematicArea|Keyword $item, string $name): void
     {
         $this->assertNameIsFree($item::class, $name, $item);
-        $item->rename($name);
-        $this->em->flush();
-        // O nome entra na busca do repositório
-        $this->index->rebuild();
+        $meta = self::LABELS[$item::class];
+
+        // O nome entra na busca do repositório: novo nome e índice mudam juntos
+        $connection = $this->em->getConnection();
+        $connection->beginTransaction();
+        try {
+            $item->rename($name);
+            $this->em->flush();
+            $this->index->syncUsing($meta['join'], $meta['column'], $item->getId()->toRfc4122());
+            $connection->commit();
+        } catch (\Throwable $e) {
+            $connection->rollBack();
+            throw $e;
+        }
     }
 
     /** Não apaga o que está em uso: o TCC perderia a classificação sem ninguém perceber. */

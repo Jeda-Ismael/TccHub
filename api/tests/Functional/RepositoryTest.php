@@ -8,6 +8,7 @@ use App\Entity\Keyword;
 use App\Entity\Tcc;
 use App\Entity\ThematicArea;
 use App\Entity\User;
+use App\Enum\Role;
 use App\Enum\TccStatus;
 use App\Factory\KeywordFactory;
 use App\Factory\ThematicAreaFactory;
@@ -210,7 +211,9 @@ final class RepositoryTest extends ApiTestCase
         // Filtros
         self::assertSame(['Detecção de fraudes em cartões'], $this->searchTitles('area='.$area->getId()->toRfc4122()));
         self::assertSame(['Contagem de veículos'], $this->searchTitles('keyword='.$keyword->getId()->toRfc4122()));
-        self::assertCount(3, $this->searchTitles('year='.date('Y')));
+        // Ano no fuso da instituição (o mesmo do filtro), não no do PHP
+        $thisYear = (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y');
+        self::assertCount(3, $this->searchTitles('year='.$thisYear));
         self::assertSame([], $this->searchTitles('year=1999'));
         $this->request('GET', '/api/repository?area=abc', token: $this->loginAs($this->outsider));
         self::assertResponseStatusCodeSame(422);
@@ -219,7 +222,7 @@ final class RepositoryTest extends ApiTestCase
         $this->request('GET', '/api/repository', token: $this->loginAs($this->outsider));
         self::assertSame('Acessibilidade na web', $this->json()['items'][0]['title']);
         self::assertSame(3, $this->json()['total']);
-        self::assertSame([(int) date('Y')], $this->json()['years']);
+        self::assertSame([(int) $thisYear], $this->json()['years']);
     }
 
     public function testTitleMatchesRankAboveAbstractMatches(): void
@@ -278,6 +281,56 @@ final class RepositoryTest extends ApiTestCase
         foreach (['board', 'statusHistory', 'documents', 'defense', 'permissions'] as $private) {
             self::assertArrayNotHasKey($private, $tcc);
         }
+    }
+
+    public function testInvalidPageAndYearAreRejectedInPortuguese(): void
+    {
+        $token = $this->loginAs($this->outsider);
+        foreach (['page=abc' => 'Página inválida.', 'page=0' => 'Página inválida.', 'page=9223372036854775807' => 'Página inválida.', 'year=abc' => 'Ano inválido no filtro.'] as $query => $message) {
+            $this->request('GET', "/api/repository?$query", token: $token);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame($message, $this->json()['message'], $query);
+        }
+    }
+
+    public function testRepeatedActionsChangeNothing(): void
+    {
+        $id = $this->approvedTcc('Detecção de fraudes', 'Resumo');
+        $studentToken = $this->loginAs($this->student);
+        $coordToken = $this->loginAs($this->coordination);
+
+        // Autorizar, retirar e autorizar de novo: um pedido só no sininho enquanto não for lido
+        foreach ([true, true, false, true] as $authorized) {
+            $this->request('PUT', "/api/tcc/$id/publication-authorization", ['authorized' => $authorized], $studentToken);
+            self::assertResponseIsSuccessful();
+        }
+        $this->request('GET', '/api/notifications', token: $coordToken);
+        self::assertSame(['PUBLICATION_REQUESTED'], array_column($this->json()['items'], 'type'));
+
+        // Tirar do ar o que não está publicado: nada acontece
+        $this->request('DELETE', "/api/tcc/$id/publish", token: $coordToken);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->json()['publishedAt']);
+
+        // Publicar duas vezes mantém a data e não repete o aviso
+        $this->request('POST', "/api/tcc/$id/publish", token: $coordToken);
+        $publishedAt = $this->json()['publishedAt'];
+        $this->request('POST', "/api/tcc/$id/publish", token: $coordToken);
+        self::assertSame($publishedAt, $this->json()['publishedAt']);
+        $this->request('GET', '/api/notifications', token: $studentToken);
+        self::assertSame(['TCC_PUBLISHED'], array_column($this->json()['items'], 'type'));
+    }
+
+    /** Quem coordena e também orienta o TCC abre o pedido de publicação na tela da coordenação. */
+    public function testPublicationRequestOpensAsCoordinationForAdvisorWhoCoordinates(): void
+    {
+        $this->advisor = UserFactory::new()->withRoles([Role::Advisor, Role::Coordination])->create(['name' => 'Paulo']);
+        $id = $this->approvedTcc('Detecção de fraudes', 'Resumo');
+        $this->request('PUT', "/api/tcc/$id/publication-authorization", ['authorized' => true], $this->loginAs($this->student));
+
+        $this->request('GET', '/api/notifications', token: $this->loginAs($this->advisor));
+        self::assertSame('PUBLICATION_REQUESTED', $this->json()['items'][0]['type']);
+        self::assertSame('COORDINATION', $this->json()['items'][0]['as']);
     }
 
     public function testRequiresLogin(): void

@@ -83,6 +83,24 @@ describe('repositório', () => {
     await waitFor(() => expect(calls.some((c) => c.url === '/repository' && c.params?.page === 2)).toBe(true));
   });
 
+  it('página além do fim volta para a última', async () => {
+    const calls = mockApi((config) =>
+      config.url === '/repository' ? { status: 200, data: { ...page(config.params?.page === 3 ? [] : [item()], 14), page: config.params?.page ?? 1 } } : { status: 200, data: [] },
+    );
+    renderWithProviders(<RepositorySearch />, '/repository?page=3');
+
+    expect(await screen.findByText('Página 2 de 2')).toBeInTheDocument();
+    expect(calls.some((c) => c.url === '/repository' && c.params?.page === 2)).toBe(true);
+  });
+
+  it('mantém no select um ano da URL sem TCCs', async () => {
+    mockApi((config) => (config.url === '/repository' ? { status: 200, data: page([]) } : { status: 200, data: [] }));
+    renderWithProviders(<RepositorySearch />, '/repository?year=2019');
+
+    expect(await screen.findByText('Nenhum TCC encontrado com esses filtros.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ano')).toHaveValue('2019');
+  });
+
   it('detalhe com o PDF final', async () => {
     mockApi(() => ({
       status: 200,

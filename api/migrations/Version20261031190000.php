@@ -35,5 +35,6 @@ final class Version20261031190000 extends AbstractMigration
     {
         $this->addSql('DROP TABLE tcc_search');
         $this->addSql('DROP TEXT SEARCH CONFIGURATION pt_unaccent');
+        // A extensão unaccent fica: é inofensiva e o up usa IF NOT EXISTS
     }
 }
