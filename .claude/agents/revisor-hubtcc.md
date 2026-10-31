@@ -28,9 +28,9 @@ Leia **o diff e o código ao redor**. Um achado só vale se você conseguir most
 Confira cada uma que o diff tocar:
 
 1. **Papéis.** Aluno é exclusivo. Orientador, Avaliador e Coordenação combinam livremente. A permissão vem do **vínculo com o TCC** (é o orientador dele? está na banca?), nunca do papel escolhido no seletor "Ver como".
-2. **Banca.** O orientador nunca avalia o próprio orientando. O tamanho fica entre `boardMinSize` e `boardMaxSize`. A banca trava a partir de `AWAITING_DEFENSE`.
+2. **Banca.** O orientador nunca avalia o próprio orientando. O tamanho fica entre `boardMinSize` e `boardMaxSize`, inclusive durante a avaliação. A banca trava a partir de `AWAITING_DEFENSE`.
 3. **Avaliação cega.** O avaliador que ainda não votou não vê os votos nem os comentários dos colegas. O aluno não vê pareceres parciais enquanto o TCC está `SENT_TO_EVALUATION`. Qualquer mudança em `TccView` ou nas respostas do TCC precisa preservar isso.
-4. **Consenso.** O status só muda quando **todos** da banca votaram. O voto roda em transação com o TCC travado (`PESSIMISTIC_WRITE`). Remover um avaliador pode fechar a rodada.
+4. **Consenso.** O status só muda quando **todos** da banca votaram. Toda ação que muda o TCC roda em transação com o TCC travado e **os votos recarregados** (`TccService::lockAndReload`): sem recarregar os `BoardMember`, um voto recém-gravado parece pendente. Remover um avaliador pode fechar a rodada. O parecer é definitivo na rodada.
 5. **Status só muda pelo Workflow.** Nada de `setStatus()` fora do workflow, exceto em testes. Toda transição grava `TccStatusHistory`.
 6. **Prazos.** Criar TCC exige prazo `SUBMISSION` aberto. Dar parecer exige prazo `EVALUATION` aberto. Datas sem hora usam `app.timezone`.
 7. **Privacidade.** Quem não participa do TCC recebe **404**, não 403. PDFs ficam fora de `public/`, e o download só por link assinado.
@@ -42,7 +42,8 @@ Confira cada uma que o diff tocar:
 - Controller fino: recebe o DTO (`#[MapRequestPayload]`), checa o Voter e chama o service. Regra de negócio no controller é um achado.
 - Erros: `DomainRuleViolation` vira 422, `TransitionNotAllowed` vira 409, e toda mensagem é **em português**, em JSON `{statusCode, message}`.
 - Toda entidade nova ou alterada precisa de migration. `SchemaTest` falha se o banco divergir das entidades.
-- N+1 em listagens, falta de índice em coluna filtrada, `flush()` dentro de laço.
+- N+1 em listagens (o `TccRepository` carrega as coleções em lote; `TccListingQueriesTest` vigia), falta de índice em coluna filtrada, `flush()` dentro de laço.
+- Estado guardado em serviço (memória entre chamadas) precisa de `ResetInterface`: no modo worker do FrankenPHP o serviço vive entre requisições.
 - Segurança: rota nova sob `/api` exige autenticação, salvo se estiver no `access_control` como `PUBLIC_ACCESS` por um motivo claro. Upload valida o conteúdo real. Nada de segredo em código ou em `.env` versionado (só valores de dev).
 
 **Frontend (React)**
@@ -64,7 +65,7 @@ Quando o ambiente Docker estiver de pé:
 
 ```bash
 docker compose exec php composer cs          # estilo
-docker compose exec php bin/console cache:warmup -q && docker compose exec php composer phpstan
+docker compose exec php bin/console cache:warmup --env=test -q && docker compose exec php composer phpstan
 docker compose exec php bin/phpunit          # testes da API
 docker compose exec web npm run typecheck && docker compose exec web npm test
 ```
