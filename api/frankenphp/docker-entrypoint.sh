@@ -10,6 +10,9 @@ if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
 
 	php bin/console -V
 
+	# Monta o cache agora, e não no primeiro request (que ficaria lento)
+	php bin/console cache:warmup
+
 	# Chaves do JWT (ficam fora do git); geradas só na primeira subida
 	php bin/console lexik:jwt:generate-keypair --skip-if-exists
 
