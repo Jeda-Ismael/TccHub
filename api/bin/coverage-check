@@ -1,0 +1,24 @@
+#!/usr/bin/env php
+<?php
+
+// Confere a cobertura de linhas de um relatório clover do PHPUnit.
+// Uso: bin/coverage-check var/coverage/clover.xml 85
+
+declare(strict_types=1);
+
+[$script, $file, $minimum] = $argv + [null, null, '85'];
+if (null === $file || !is_file($file)) {
+    fwrite(\STDERR, "Relatório de cobertura não encontrado: {$file}\n");
+    exit(1);
+}
+
+$metrics = (new SimpleXMLElement((string) file_get_contents($file)))->project->metrics;
+$total = (int) $metrics['statements'];
+$covered = (int) $metrics['coveredstatements'];
+$percent = 0 === $total ? 100.0 : $covered * 100 / $total;
+
+printf("Cobertura de linhas da API: %.2f%% (%d de %d). Mínimo: %s%%.\n", $percent, $covered, $total, $minimum);
+if ($percent < (float) $minimum) {
+    fwrite(\STDERR, "Cobertura abaixo do mínimo.\n");
+    exit(1);
+}

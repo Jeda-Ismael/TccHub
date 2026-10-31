@@ -9,8 +9,8 @@ COMPOSER    = $(PHP_CONT) composer
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps sh composer console \
-        db-create db-reset fixtures migration migrate \
-        test-db test coverage phpstan cs cs-fix web-test qa \
+        db-create db-reset fixtures demo migration migrate \
+        test-db test coverage test-coverage phpstan cs cs-fix web-test web-coverage qa \
         prod-up prod-down prod-logs prod-user
 
 help: ## Lista os comandos disponíveis
@@ -20,7 +20,7 @@ help: ## Lista os comandos disponíveis
 build: ## Constrói as imagens
 	@$(DOCKER_COMP) build --pull
 
-up: ## Sobe o ambiente (API em https://localhost, front em http://localhost:5173)
+up: ## Sobe o ambiente (sistema em http://localhost:5173, API em https://localhost/api)
 	@$(DOCKER_COMP) up --detach --wait
 
 down: ## Derruba o ambiente
@@ -52,10 +52,16 @@ db-reset: ## Recria o banco do zero, roda as migrations e carrega as fixtures
 	@# Apaga as tabelas em vez do banco: a API mantém conexões abertas e o Postgres não deixa dropar
 	@$(CONSOLE) doctrine:schema:drop --full-database --force
 	@$(CONSOLE) doctrine:migrations:migrate --no-interaction --allow-no-migration
-	@$(CONSOLE) doctrine:fixtures:load --no-interaction
+	@$(CONSOLE) doctrine:fixtures:load --no-interaction --group=base
 
-fixtures: ## Recarrega as fixtures (apaga os dados atuais)
-	@$(CONSOLE) doctrine:fixtures:load --no-interaction
+fixtures: ## Recarrega os dados base: usuários, catálogos e períodos (apaga os dados atuais)
+	@$(CONSOLE) doctrine:fixtures:load --no-interaction --group=base
+
+demo: up migrate ## Sobe tudo com dados de demonstração: TCCs em vários status e o repositório com publicados (apaga os dados atuais)
+	@$(CONSOLE) doctrine:fixtures:load --no-interaction --group=demo
+	@echo ""
+	@echo "  Pronto: abra http://localhost:5173 e entre com coordenacao@hubtcc.dev / 123456"
+	@echo "  (outros usuários no README; todos com a senha 123456)"
 
 migration: ## Gera uma migration a partir das entidades
 	@$(CONSOLE) make:migration
@@ -73,7 +79,11 @@ test: test-db ## Roda os testes. Ex.: make test c='--filter=Health'
 	@$(PHP_CONT) bin/phpunit $(c)
 
 coverage: test-db ## Testes com relatório de cobertura em api/var/coverage
-	@$(DOCKER_COMP) exec -e XDEBUG_MODE=off php php -d pcov.enabled=1 bin/phpunit --coverage-html var/coverage --coverage-text
+	@$(DOCKER_COMP) exec -e XDEBUG_MODE=off php php -d pcov.enabled=1 -d pcov.directory=src bin/phpunit --coverage-html var/coverage --coverage-text
+
+test-coverage: test-db ## Testes da API exigindo cobertura mínima de 85% (usado na CI)
+	@$(DOCKER_COMP) exec -e XDEBUG_MODE=off php php -d pcov.enabled=1 -d pcov.directory=src bin/phpunit --coverage-clover var/coverage/clover.xml
+	@$(PHP_CONT) bin/coverage-check var/coverage/clover.xml 85
 
 phpstan: ## Análise estática (PHPStan nível 8)
 	@$(CONSOLE) cache:warmup --env=test -q
@@ -85,11 +95,14 @@ cs: ## Verifica o estilo do código
 cs-fix: ## Corrige o estilo do código
 	@$(COMPOSER) cs:fix
 
-web-test: ## Roda os testes e a checagem de tipos do frontend
+web-test: ## Roda os testes e a checagem de tipos do frontend (pasta web/)
 	@$(DOCKER_COMP) exec web npm run typecheck
 	@$(DOCKER_COMP) exec web npm test
 
-qa: cs phpstan test web-test ## Roda tudo o que a CI roda
+web-coverage: ## Testes do frontend exigindo cobertura mínima de 85%
+	@$(DOCKER_COMP) exec web npm run test:coverage
+
+qa: cs phpstan test-coverage web-test web-coverage ## Roda tudo o que a CI roda
 
 ## —— Produção (no servidor; ver docs/DEPLOY.md) ———————————————
 prod-up: ## Constrói e sobe a versão de produção (usa .env.prod)

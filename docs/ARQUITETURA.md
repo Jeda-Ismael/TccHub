@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fases 0 a 7 concluídas (Fase 6 sem e-mail) · Versão 9 · 2026-10
+> Status: decisões fechadas · Migração concluída: fases 0 a 8 (Fase 6 sem e-mail) · Versão 10 · 2026-10
 
 ---
 
@@ -12,7 +12,7 @@ Documento de referência para a migração do backend NestJS/Prisma/MySQL para S
 |------|---------|
 | Servidor | **FrankenPHP** (1 container: PHP + Caddy) |
 | Frontend | **React mantido**; Symfony é só API |
-| Pastas | **`api/` + `web/`**; NestJS fica em `backend/` até o corte final |
+| Pastas | **`api/` + `web/`** (o NestJS em `backend/` foi removido na Fase 8) |
 | Deploy | **Só local / apresentação**: sem compose de produção por enquanto |
 | Papéis | **Vários papéis por usuário**. Aluno é exclusivo; Orientador, Avaliador e Coordenação combinam livremente |
 | Navegação | **Seletor de papel** no topo ("Ver como…"), reaproveitando as telas atuais |
@@ -160,7 +160,6 @@ hubtcc/
 │   ├── frankenphp/              # Caddyfile, php.ini, entrypoint
 │   └── Dockerfile
 ├── web/                          # React (ex-frontend/)
-├── backend/                      # NestJS — removido na fase final
 ├── docs/
 ├── compose.yaml
 ├── compose.override.yaml
@@ -585,7 +584,7 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 | 5 · Defesa ✅ | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação (testado no navegador até Aprovado) |
 | 6 · Notificações ✅ (sem e-mail) | Sininho: avisos gravados junto com cada ação, API e contador no frontend. E-mail, `worker` e lembrete ficaram no backlog | Avisos certos para cada papel; clique leva ao TCC (testado no navegador) |
 | 7 · Repositório ✅ | Autorização, publicação, busca full-text, download | Busca em português e sem acento; só TCCs publicados (testado no navegador) |
-| 8 · Corte | `make demo`, remover NestJS, `frontend/` → `web/`, README | Repositório só com Symfony; cobertura ≥ 85% |
+| 8 · Corte ✅ | `make demo`, remover NestJS, `frontend/` → `web/`, README | Repositório só com Symfony; cobertura ≥ 85% exigida na CI (API 94%, web 93%) |
 
 Os testes são escritos **em cada fase** e não ficam para o final. Cada fase só termina com `make qa` verde.
 
@@ -633,7 +632,7 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - **Nova defesa** abre a tentativa seguinte (sem data, sem notas); as anteriores aparecem em `previousDefenses`.
 - **Notas às cegas** até a defesa fechar: cada avaliador vê só a própria (mesmo quem também é coordenação); a coordenação de fora da banca acompanha; aluno e orientador veem tudo no resultado.
 - **Concorrência:** `TccLocker` centraliza "travar e recarregar" (banca, defesa e notas) para todas as ações do TCC.
-- **Horários:** a API manda as datas do TCC no fuso da instituição e a tela mostra exatamente esse horário (`frontend/src/utils/dates.ts`), sem converter para o fuso do navegador. O campo de agendamento usa `datetime-local`, interpretado no fuso da instituição.
+- **Horários:** a API manda as datas do TCC no fuso da instituição e a tela mostra exatamente esse horário (`web/src/utils/dates.ts`), sem converter para o fuso do navegador. O campo de agendamento usa `datetime-local`, interpretado no fuso da instituição.
 
 ## 14.4 Notas da Fase 7 (repositório)
 
@@ -648,6 +647,20 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - **Índice:** atualizado ao publicar, tirar do ar ou retirar a autorização (na mesma transação, via `TccLocker`) e refeito por completo quando a coordenação renomeia uma área ou palavra-chave.
 - **O que é público no repositório:** título, resumo, autor, orientador, áreas, palavras-chave, nota final, data de publicação e o PDF final (link assinado de 5 min). Pareceres, notas por avaliador, histórico, defesa e versões anteriores continuam restritos.
 - **Ano** = ano da publicação, no fuso da instituição.
+
+## 14.5 Notas da Fase 8 (corte)
+
+- **Removidos:** o backend NestJS (`backend/`, com Prisma e MySQL) e o login com Google, que estava só nele e segue no backlog.
+- **Renomeado:** `frontend/` → `web/`, nos composes, na CI, no Makefile e na documentação.
+- **`make demo`:** sobe tudo e carrega o grupo de fixtures `demo` (`App\DataFixtures\DemoFixtures`).
+  - TCCs de outros alunos: em revisão, na banca com um parecer, com defesa agendada, e quatro aprovados e publicados, com PDF de verdade e índice de busca.
+  - Os alunos de teste (`aluno@`, `aluno2@`) ficam sem TCC, para testar o fluxo do zero.
+  - `make fixtures` carrega só o grupo `base`.
+- **Cobertura mínima de 85%** de linhas, exigida na CI:
+  - API: `make test-coverage`, PCOV + `api/bin/coverage-check`.
+  - Web: `npm run test:coverage`, thresholds no `vite.config.ts`.
+  - `main.tsx` e os utilitários de teste não contam.
+- **Ponto de atenção:** a cobertura da API depende do PCOV na imagem de desenvolvimento. Se a instalação via PECL falhar no build (o script tenta 3 vezes), o passo de cobertura da CI falha. Basta rodar a CI de novo quando o PECL voltar.
 
 ## 15. Backlog (fora do escopo)
 
