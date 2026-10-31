@@ -114,8 +114,9 @@ final class TccView implements ResetInterface
 
     /**
      * Tentativa de defesa atual. Notas às cegas: cada avaliador vê só a própria
-     * até a defesa fechar; a coordenação acompanha tudo; aluno e orientador veem
-     * as notas quando sai o resultado.
+     * até a defesa fechar (mesmo quem também é coordenação); a coordenação de
+     * fora da banca acompanha tudo; aluno e orientador veem as notas quando sai
+     * o resultado.
      *
      * @return array<string, mixed>|null
      */
@@ -127,7 +128,7 @@ final class TccView implements ResetInterface
         }
 
         $closed = $defense->isClosed();
-        $seesAll = $closed || $viewer->hasRole(Role::Coordination);
+        $seesAll = $closed || (null === $tcc->findBoardMember($viewer) && $viewer->hasRole(Role::Coordination));
         $grades = array_values(array_filter(
             $defense->getGrades()->getValues(),
             static fn (DefenseGrade $g): bool => $seesAll || $g->getBoardMember()->getEvaluator()->getId()->equals($viewer->getId()),

@@ -182,8 +182,8 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
 function GradeForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
   const gradeDefense = useGradeDefense(tcc.id);
   const mine = defense.grades.find((g) => g.isMe);
-  const [projectGrade, setProjectGrade] = useState(mine ? String(mine.projectGrade) : '');
-  const [presentationGrade, setPresentationGrade] = useState(mine ? String(mine.presentationGrade) : '');
+  const [projectGrade, setProjectGrade] = useState(mine ? formatGrade(mine.projectGrade) : '');
+  const [presentationGrade, setPresentationGrade] = useState(mine ? formatGrade(mine.presentationGrade) : '');
   const [comment, setComment] = useState(mine?.comment ?? '');
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 

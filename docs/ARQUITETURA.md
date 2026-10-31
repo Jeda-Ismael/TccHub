@@ -621,10 +621,10 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 | Lançar / corrigir notas (`PUT /api/tcc/{id}/defense/grade`) | Membro da banca | A partir do horário agendado, até toda a banca lançar |
 | Decidir (`POST /api/tcc/{id}/decision`, `new_defense` ou `reject`) | Coordenação | `AWAITING_DECISION`, com justificativa |
 
-- **Cálculo:** média das notas de projeto, média das de apresentação e nota final = média das duas. Tudo em centésimos inteiros (`App\Util\Grade`), com meio centésimo arredondando para cima. Ex.: (7,75 + 9,50) / 2 = 8,625 → **8,63**.
+- **Cálculo:** média das notas de projeto, média das de apresentação e nota final = média das duas. Tudo em centésimos inteiros (`App\Util\Grade`), com meio centésimo arredondando para cima. Ex.: (7,75 + 9,50) / 2 = 8,625 → **8,63**. As médias parciais aparecem arredondadas, mas só a final é arredondada no cálculo (projeto 5,995 e apresentação 5,99 dão 5,9925 → 5,99, não 6,00). Notas com mais de duas casas são recusadas.
 - **Resultado automático** quando o último avaliador lança: final ≥ nota mínima (configurações) → `APPROVED` e a nota fica no TCC; abaixo → `AWAITING_DECISION`.
 - **Nova defesa** abre a tentativa seguinte (sem data, sem notas); as anteriores aparecem em `previousDefenses`.
-- **Notas às cegas** até a defesa fechar: cada avaliador vê só a própria; a coordenação acompanha; aluno e orientador veem tudo no resultado.
+- **Notas às cegas** até a defesa fechar: cada avaliador vê só a própria (mesmo quem também é coordenação); a coordenação de fora da banca acompanha; aluno e orientador veem tudo no resultado.
 - **Concorrência:** `TccLocker` centraliza "travar e recarregar" (banca, defesa e notas) para todas as ações do TCC.
 - **Horários:** a API manda as datas do TCC no fuso da instituição e a tela mostra exatamente esse horário (`frontend/src/utils/dates.ts`), sem converter para o fuso do navegador. O campo de agendamento usa `datetime-local`, interpretado no fuso da instituição.
 

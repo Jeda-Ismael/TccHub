@@ -215,6 +215,38 @@ final class DefenseFlowTest extends ApiTestCase
         self::assertCount(1, $this->json()['defense']['grades']);
     }
 
+    /** Quem está na banca não vê as notas dos colegas, mesmo tendo também o papel de coordenação. */
+    public function testBoardMemberWhoIsAlsoCoordinationStaysBlind(): void
+    {
+        $this->evaluator2 = UserFactory::new()->withRoles([Role::Evaluator, Role::Coordination])->create(['name' => 'Alice']);
+        $id = $this->awaitingDefense();
+        $this->scheduledInThePast($id);
+        $this->request('PUT', "/api/tcc/$id/defense/grade", ['projectGrade' => 9, 'presentationGrade' => 9], $this->as($this->evaluator1));
+
+        $this->request('GET', "/api/tcc/$id", token: $this->as($this->evaluator2));
+        self::assertSame([], $this->json()['defense']['grades']);
+
+        $this->request('PUT', "/api/tcc/$id/defense/grade", ['projectGrade' => 7, 'presentationGrade' => 7], $this->as($this->evaluator2));
+        self::assertCount(2, $this->json()['defense']['grades']);
+    }
+
+    /**
+     * Só a média final é arredondada. Arredondando as parciais antes, projeto
+     * 5,995 → 6,00 e a final viraria 6,00 (aprovado); o valor exato é 5,9925 → 5,99.
+     */
+    public function testOnlyTheFinalGradeIsRounded(): void
+    {
+        $id = $this->awaitingDefense();
+        $this->scheduledInThePast($id);
+        $this->bothGrade($id, [5.99, 5.99], [6.00, 5.99]);
+
+        $tcc = $this->json();
+        self::assertSame('AWAITING_DECISION', $tcc['status']);
+        self::assertEquals(6.00, $tcc['defense']['projectAverage']);
+        self::assertEquals(5.99, $tcc['defense']['presentationAverage']);
+        self::assertEquals(5.99, $tcc['defense']['finalGrade']);
+    }
+
     public function testGradeCanBeCorrectedUntilTheDefenseCloses(): void
     {
         $id = $this->awaitingDefense();
@@ -285,6 +317,10 @@ final class DefenseFlowTest extends ApiTestCase
             ['A nota do projeto deve estar entre 0 e 10.', 'A nota da apresentação deve estar entre 0 e 10.'],
             $this->json()['message'],
         );
+
+        $this->request('PUT', "/api/tcc/$id/defense/grade", ['projectGrade' => 6.995, 'presentationGrade' => 7.25], $this->as($this->evaluator1));
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['As notas podem ter no máximo duas casas decimais.'], $this->json()['message']);
     }
 
     public function testDecisionOnlyForCoordinationAndOnlyAfterAFailedDefense(): void

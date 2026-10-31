@@ -96,9 +96,13 @@ final class DefenseService
             return;
         }
 
-        $project = Grade::average(array_map(static fn ($g): string => $g->getProjectGrade(), $grades));
-        $presentation = Grade::average(array_map(static fn ($g): string => $g->getPresentationGrade(), $grades));
-        $final = Grade::average([$project, $presentation]);
+        $projectGrades = array_map(static fn ($g): string => $g->getProjectGrade(), $grades);
+        $presentationGrades = array_map(static fn ($g): string => $g->getPresentationGrade(), $grades);
+        $project = Grade::average($projectGrades);
+        $presentation = Grade::average($presentationGrades);
+        // Só a final é arredondada: (média projeto + média apresentação) / 2 sem
+        // arredondar as parciais = média de todas as notas (mesmo número em cada lista).
+        $final = Grade::average(array_merge($projectGrades, $presentationGrades));
         $passing = $this->settings->get()->getPassingGrade();
         $passed = Grade::isAtLeast($final, $passing);
 

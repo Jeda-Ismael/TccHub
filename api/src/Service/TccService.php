@@ -77,6 +77,17 @@ final class TccService
      */
     public function update(Tcc $tcc, ?string $title, ?string $abstract, ?string $advisorId, ?array $thematicAreaIds, ?array $keywordIds): void
     {
+        $this->locker->run($tcc, function () use ($tcc, $title, $abstract, $advisorId, $thematicAreaIds, $keywordIds): void {
+            $this->applyUpdate($tcc, $title, $abstract, $advisorId, $thematicAreaIds, $keywordIds);
+        });
+    }
+
+    /**
+     * @param list<string>|null $thematicAreaIds
+     * @param list<string>|null $keywordIds
+     */
+    private function applyUpdate(Tcc $tcc, ?string $title, ?string $abstract, ?string $advisorId, ?array $thematicAreaIds, ?array $keywordIds): void
+    {
         if (null !== $title) {
             $tcc->changeTitle($title);
         }
@@ -92,8 +103,6 @@ final class TccService
         if (null !== $keywordIds) {
             $tcc->replaceKeywords($this->findAll(Keyword::class, $keywordIds, 'Palavra-chave'));
         }
-
-        $this->em->flush();
     }
 
     public function uploadDocument(Tcc $tcc, File $file, string $originalName, User $uploadedBy): void
