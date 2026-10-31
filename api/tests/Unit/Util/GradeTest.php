@@ -49,4 +49,29 @@ final class GradeTest extends TestCase
 
         Grade::normalize(11, 'nota do projeto');
     }
+
+    /** @return iterable<string, array{non-empty-list<string>, string}> */
+    public static function averages(): iterable
+    {
+        yield 'exata' => [['8.00', '9.50'], '8.75'];
+        yield 'arredonda para cima no meio' => [['7.00', '7.00', '7.01'], '7.00'];
+        yield 'dízima' => [['10.00', '10.00', '9.00'], '9.67'];
+        yield 'meio centésimo sobe' => [['6.00', '6.01'], '6.01'];
+        yield 'uma nota' => [['5.25'], '5.25'];
+        yield 'zero' => [['0.00', '0.00'], '0.00'];
+    }
+
+    /** @param non-empty-list<string> $grades */
+    #[DataProvider('averages')]
+    public function testAverageInHundredths(array $grades, string $expected): void
+    {
+        self::assertSame($expected, Grade::average($grades));
+    }
+
+    public function testComparesWithTheMinimum(): void
+    {
+        self::assertTrue(Grade::isAtLeast('6.00', '6.00'));
+        self::assertTrue(Grade::isAtLeast('10.00', '6.00'));
+        self::assertFalse(Grade::isAtLeast('5.99', '6.00'));
+    }
 }

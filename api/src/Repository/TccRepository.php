@@ -88,6 +88,7 @@ class TccRepository extends ServiceEntityRepository
             't.documents' => 'doc',
             't.boardMembers' => 'bm',
             't.statusHistory' => 'sh',
+            't.defenses' => 'df',
         ];
         foreach ($joins as $collection => $alias) {
             $qb = $this->createQueryBuilder('t')
@@ -101,6 +102,10 @@ class TccRepository extends ServiceEntityRepository
             }
             if ('sh' === $alias) {
                 $qb->addSelect('cb')->leftJoin('sh.changedBy', 'cb');
+            }
+            // Notas de cada tentativa de defesa
+            if ('df' === $alias) {
+                $qb->addSelect('dg')->leftJoin('df.grades', 'dg');
             }
             $qb->getQuery()->getResult();
         }

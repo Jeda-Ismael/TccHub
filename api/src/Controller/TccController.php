@@ -6,7 +6,10 @@ namespace App\Controller;
 
 use App\Dto\AdvisorReviewRequest;
 use App\Dto\BoardRequest;
+use App\Dto\DecisionRequest;
+use App\Dto\DefenseGradeRequest;
 use App\Dto\EvaluateRequest;
+use App\Dto\ScheduleDefenseRequest;
 use App\Dto\TccRequest;
 use App\Dto\TccView;
 use App\Entity\Tcc;
@@ -16,9 +19,11 @@ use App\Enum\TccStatus;
 use App\Exception\DomainRuleViolation;
 use App\Repository\TccRepository;
 use App\Security\Voter\TccVoter;
+use App\Service\DefenseService;
 use App\Service\DocumentStorage;
 use App\Service\TccService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -194,6 +199,41 @@ final class TccController extends AbstractController
     {
         $tcc = $this->find($id, TccVoter::EVALUATE);
         $this->service->evaluate($tcc, $user, $payload->verdictEnum(), $payload->comment);
+
+        return $this->json($this->view->present($tcc, $user));
+    }
+
+    /** Agendar ou reagendar a defesa: orientador do TCC ou coordenação. */
+    #[Route('/{id}/defense', name: 'api_tcc_defense_schedule', requirements: ['id' => Requirement::UUID], methods: ['PUT'])]
+    public function scheduleDefense(
+        string $id,
+        #[CurrentUser] User $user,
+        #[MapRequestPayload] ScheduleDefenseRequest $payload,
+        DefenseService $defenses,
+        #[Autowire(param: 'app.timezone')] string $timezone,
+    ): JsonResponse {
+        $tcc = $this->find($id, TccVoter::SCHEDULE_DEFENSE);
+        $defenses->schedule($tcc, $payload->scheduledAt($timezone), $payload->location, $payload->meetingUrl, $user);
+
+        return $this->json($this->view->present($tcc, $user));
+    }
+
+    /** Notas de projeto e apresentação de um avaliador da banca. */
+    #[Route('/{id}/defense/grade', name: 'api_tcc_defense_grade', requirements: ['id' => Requirement::UUID], methods: ['PUT'])]
+    public function gradeDefense(string $id, #[CurrentUser] User $user, #[MapRequestPayload] DefenseGradeRequest $payload, DefenseService $defenses): JsonResponse
+    {
+        $tcc = $this->find($id, TccVoter::GRADE_DEFENSE);
+        $defenses->grade($tcc, $user, (float) $payload->projectGrade, (float) $payload->presentationGrade, $payload->comment);
+
+        return $this->json($this->view->present($tcc, $user));
+    }
+
+    /** Média abaixo do mínimo: a coordenação permite nova defesa ou reprova. */
+    #[Route('/{id}/decision', name: 'api_tcc_decision', requirements: ['id' => Requirement::UUID], methods: ['POST'])]
+    public function decide(string $id, #[CurrentUser] User $user, #[MapRequestPayload] DecisionRequest $payload, DefenseService $defenses): JsonResponse
+    {
+        $tcc = $this->find($id, TccVoter::DECIDE);
+        $defenses->decide($tcc, DecisionRequest::NEW_DEFENSE === $payload->action, $payload->comment);
 
         return $this->json($this->view->present($tcc, $user));
     }
