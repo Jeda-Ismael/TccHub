@@ -65,6 +65,11 @@ final class PeriodAndSettingsTest extends ApiTestCase
         $this->request('POST', '/api/periods', ['type' => 'SUBMISSION', 'label' => 'X', 'startDate' => 'amanhã', 'endDate' => '2026-02-01'], $token);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Data de início inválida.', $this->json()['message']);
+
+        // Datas que não existem não viram outra data em silêncio (31/02 viraria 03/03)
+        $this->request('POST', '/api/periods', ['type' => 'SUBMISSION', 'label' => 'X', 'startDate' => '2026-01-01', 'endDate' => '2026-02-31'], $token);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Data de término inválida.', $this->json()['message']);
     }
 
     public function testOnlyCoordinationManagesPeriods(): void

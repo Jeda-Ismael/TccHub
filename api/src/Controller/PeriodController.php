@@ -9,6 +9,7 @@ use App\Entity\SubmissionPeriod;
 use App\Repository\SubmissionPeriodRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,13 +28,14 @@ final class PeriodController extends AbstractController
         private readonly SubmissionPeriodRepository $periods,
         private readonly EntityManagerInterface $em,
         #[Autowire(param: 'app.timezone')] private readonly string $timezone,
+        private readonly ClockInterface $clock,
     ) {
     }
 
     #[Route('', name: 'api_periods_list', methods: ['GET'])]
     public function list(): JsonResponse
     {
-        $now = new \DateTimeImmutable();
+        $now = $this->clock->now();
 
         return $this->json(array_map(
             fn (SubmissionPeriod $period): array => $this->view($period, $now),
@@ -49,7 +51,7 @@ final class PeriodController extends AbstractController
         $this->em->persist($period);
         $this->em->flush();
 
-        return $this->json($this->view($period, new \DateTimeImmutable()), Response::HTTP_CREATED);
+        return $this->json($this->view($period, $this->clock->now()), Response::HTTP_CREATED);
     }
 
     #[Route('/{id}', name: 'api_periods_update', requirements: ['id' => Requirement::UUID], methods: ['PUT'])]
@@ -60,7 +62,7 @@ final class PeriodController extends AbstractController
         $period->update($payload->typeEnum(), $payload->label, $payload->start($this->timezone), $payload->end($this->timezone));
         $this->em->flush();
 
-        return $this->json($this->view($period, new \DateTimeImmutable()));
+        return $this->json($this->view($period, $this->clock->now()));
     }
 
     #[Route('/{id}', name: 'api_periods_delete', requirements: ['id' => Requirement::UUID], methods: ['DELETE'])]

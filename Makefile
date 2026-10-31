@@ -74,7 +74,7 @@ coverage: test-db ## Testes com relatório de cobertura em api/var/coverage
 	@$(DOCKER_COMP) exec -e XDEBUG_MODE=off php php -d pcov.enabled=1 bin/phpunit --coverage-html var/coverage --coverage-text
 
 phpstan: ## Análise estática (PHPStan nível 8)
-	@$(CONSOLE) cache:warmup --env=dev -q
+	@$(CONSOLE) cache:warmup --env=test -q
 	@$(COMPOSER) phpstan
 
 cs: ## Verifica o estilo do código
