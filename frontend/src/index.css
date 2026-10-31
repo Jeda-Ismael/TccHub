@@ -269,6 +269,16 @@ button:disabled {
   border-radius: 10px;
 }
 
+/* Preenchimento automático do navegador: mantém o campo cinza com texto branco */
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover,
+.auth-card input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--auth-text);
+  caret-color: var(--auth-text);
+  box-shadow: 0 0 0 1000px var(--auth-field) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
 .auth-card input:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.45);
