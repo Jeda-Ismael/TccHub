@@ -18,6 +18,7 @@ import { CoordinationTccDetail } from './pages/coordination/CoordinationTccDetai
 import { UsersManagement } from './pages/coordination/UsersManagement';
 import { Catalogs } from './pages/coordination/Catalogs';
 import { Periods } from './pages/coordination/Periods';
+import { Settings } from './pages/coordination/Settings';
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ export function App() {
                   <Route path="users" element={<UsersManagement />} />
                   <Route path="catalogs" element={<Catalogs />} />
                   <Route path="periods" element={<Periods />} />
+                  <Route path="settings" element={<Settings />} />
                 </Route>
               </Route>
             </Route>

@@ -7,7 +7,7 @@ export function StatusHistoryTimeline({ entries }: { entries: TccStatusHistoryEn
     <div className="card">
       <h3>Histórico</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-        {entries.map((entry) => (
+        {[...entries].reverse().map((entry) => (
           <div key={entry.id} style={{ fontSize: '0.85rem', borderLeft: '2px solid var(--border)', paddingLeft: '0.75rem' }}>
             <div>
               {entry.fromStatus ? `${STATUS_LABELS[entry.fromStatus]} → ` : ''}

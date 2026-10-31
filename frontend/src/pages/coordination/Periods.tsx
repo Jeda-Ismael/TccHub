@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../api/client';
 import { FormEvent, useState } from 'react';
 import { useCreatePeriod, useDeletePeriod, usePeriods, useUpdatePeriod } from '../../api/hooks';
 import { SubmissionPeriod } from '../../api/types';
@@ -62,8 +63,8 @@ export function Periods() {
         await createPeriod.mutateAsync({ type, label, startDate, endDate });
       }
       resetForm();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível salvar o prazo');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível salvar o prazo'));
     }
   }
 

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../api/client';
 import { FormEvent, useState } from 'react';
 import {
   useCreateKeyword,
@@ -35,8 +36,8 @@ function ThematicAreasCard() {
     try {
       await createArea.mutateAsync(name.trim());
       setName('');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível criar a área temática');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível criar a área temática'));
     }
   }
 
@@ -44,8 +45,8 @@ function ThematicAreasCard() {
     setError(null);
     try {
       await deleteArea.mutateAsync(area.id);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível excluir');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível excluir'));
     }
   }
 
@@ -56,7 +57,7 @@ function ThematicAreasCard() {
         <CatalogRow
           key={a.id}
           name={a.name}
-          usageCount={a._count?.tccs || 0}
+          usageCount={a.tccCount ?? 0}
           onSave={(newName) => updateArea.mutateAsync({ id: a.id, name: newName })}
           onDelete={() => handleDelete(a)}
         />
@@ -88,8 +89,8 @@ function KeywordsCard() {
     try {
       await createKeyword.mutateAsync(name.trim());
       setName('');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível criar a palavra-chave');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível criar a palavra-chave'));
     }
   }
 
@@ -97,8 +98,8 @@ function KeywordsCard() {
     setError(null);
     try {
       await deleteKeyword.mutateAsync(keyword.id);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível excluir');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível excluir'));
     }
   }
 
@@ -109,7 +110,7 @@ function KeywordsCard() {
         <CatalogRow
           key={k.id}
           name={k.name}
-          usageCount={k._count?.tccs || 0}
+          usageCount={k.tccCount ?? 0}
           onSave={(newName) => updateKeyword.mutateAsync({ id: k.id, name: newName })}
           onDelete={() => handleDelete(k)}
         />
@@ -153,8 +154,8 @@ function CatalogRow({
     try {
       await onSave(value.trim());
       setEditing(false);
-    } catch (err: any) {
-      setEditError(err.response?.data?.message || 'Não foi possível salvar');
+    } catch (err) {
+      setEditError(apiErrorMessage(err, 'Não foi possível salvar'));
     } finally {
       setSaving(false);
     }

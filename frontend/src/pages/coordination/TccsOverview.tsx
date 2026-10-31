@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTccs } from '../../api/hooks';
+import { QueryStatus } from '../../components/QueryStatus';
 import { StatusBadge } from '../../components/StatusBadge';
 import { STATUS_LABELS, TccStatus } from '../../api/types';
 
 export function TccsOverview() {
-  const { data: tccs, isLoading } = useTccs();
+  const { data: tccs, isLoading, error } = useTccs('COORDINATION');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<TccStatus | ''>('');
 
@@ -23,7 +24,7 @@ export function TccsOverview() {
     });
   }, [tccs, search, statusFilter]);
 
-  if (isLoading) return <p>Carregando...</p>;
+  if (isLoading || error) return <QueryStatus isLoading={isLoading} error={error} />;
 
   return (
     <div className="card">
