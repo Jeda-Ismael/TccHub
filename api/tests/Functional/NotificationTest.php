@@ -7,6 +7,7 @@ namespace App\Tests\Functional;
 use App\Entity\Notification;
 use App\Entity\User;
 use App\Enum\NotificationType;
+use App\Enum\Role;
 use App\Factory\SubmissionPeriodFactory;
 use App\Factory\UserFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -111,7 +112,7 @@ final class NotificationTest extends ApiTestCase
         self::assertSame(4, $this->json()['unreadCount']);
     }
 
-    public function testCorrectionsCarryTheComment(): void
+    public function testCorrectionsFromTheBoardPointToTheReviews(): void
     {
         $id = $this->createAndSubmit();
         $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1), $this->id($this->evaluator2)]], $this->loginAs($this->coordination));
@@ -120,10 +121,40 @@ final class NotificationTest extends ApiTestCase
         $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'CORRECTIONS_REQUESTED', 'comment' => 'Revise a metodologia'], $this->loginAs($this->evaluator2));
         self::assertSame('CORRECTIONS_REQUESTED', $this->json()['status']);
 
-        $this->request('GET', '/api/notifications', token: $this->loginAs($this->student));
-        $latest = $this->json()['items'][0];
+        $latest = $this->lastFor($this->student);
         self::assertSame('CORRECTIONS_REQUESTED', $latest['type']);
-        self::assertNotSame('', $latest['body']);
+        self::assertSame('A banca terminou a avaliação e pediu correções. Veja os pareceres, envie a versão corrigida do PDF e reenvie o TCC.', $latest['body']);
+    }
+
+    public function testCorrectionsFromTheAdvisorCarryTheComment(): void
+    {
+        $id = $this->createAndSubmit();
+        $this->request('PUT', "/api/tcc/$id/evaluators", ['evaluatorIds' => [$this->id($this->evaluator1), $this->id($this->evaluator2)]], $this->loginAs($this->coordination));
+        $advisorToken = $this->loginAs($this->advisor);
+        $this->request('POST', "/api/tcc/$id/advisor-review", ['approve' => true], $advisorToken);
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $this->loginAs($this->evaluator1));
+        $this->request('POST', "/api/tcc/$id/evaluate", ['verdict' => 'APPROVED'], $this->loginAs($this->evaluator2));
+        $this->request('POST', "/api/tcc/$id/advisor-review", ['approve' => false, 'comment' => 'Ajuste as referências'], $advisorToken);
+        self::assertSame('CORRECTIONS_REQUESTED', $this->json()['status']);
+
+        self::assertSame('Comentário do orientador: Ajuste as referências', $this->lastFor($this->student)['body']);
+    }
+
+    /** O coordenador que estava na banca e deu a última nota também precisa saber que deve decidir. */
+    public function testCoordinatorOnTheBoardWhoGradedLastIsAskedToDecide(): void
+    {
+        $this->evaluator2 = UserFactory::new()->withRoles([Role::Evaluator, Role::Coordination])->create(['name' => 'Paulo']);
+        $this->coordination = $this->evaluator2;
+        $id = $this->createAndSubmit();
+        $this->toDefense($id);
+        $this->gradeBoth($id, 3);
+
+        $last = $this->lastFor($this->evaluator2);
+        self::assertSame('DECISION_PENDING', $last['type']);
+        self::assertSame('COORDINATION', $last['as']);
+        // Nos outros avisos, ele abre o TCC como avaliador
+        $this->request('GET', '/api/notifications', token: $this->loginAs($this->evaluator2));
+        self::assertSame('EVALUATOR', $this->json()['items'][1]['as']);
     }
 
     public function testCoordinationIsAskedToDecideAfterAFailedDefense(): void

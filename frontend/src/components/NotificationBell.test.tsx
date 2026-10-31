@@ -88,6 +88,20 @@ describe('sininho', () => {
     expect(await screen.findByText('Nenhuma notificação.')).toBeInTheDocument();
   });
 
+  it('mostra o erro quando a lista não carrega', async () => {
+    mockApi((config) => {
+      if (config.url === '/auth/refresh') return { status: 200, data: authResponse(['STUDENT']) };
+      if (config.url === '/notifications') return { status: 500, data: { statusCode: 500, message: 'Erro interno.' } };
+      return { status: 200, data: { unreadCount: 0 } };
+    });
+    const user = userEvent.setup();
+    renderBell();
+
+    await user.click(await screen.findByRole('button', { name: 'Notificações' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Erro interno.');
+  });
+
   it('caminho do TCC conforme o papel', () => {
     expect(notificationPath(notification({ as: 'STUDENT' }))).toBe('/student');
     expect(notificationPath(notification({ as: 'ADVISOR' }))).toBe('/advisor/t1');

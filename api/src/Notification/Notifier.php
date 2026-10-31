@@ -26,10 +26,15 @@ final class Notifier
     ) {
     }
 
-    /** @param iterable<User|null> $recipients */
-    public function notify(NotificationType $type, ?Tcc $tcc, iterable $recipients, string $title, string $body): void
+    /**
+     * @param iterable<User|null> $recipients
+     * @param bool                $skipActor  false quando o aviso é uma tarefa nova para quem
+     *                                        agiu (ex.: o coordenador que deu a última nota
+     *                                        precisa decidir a defesa)
+     */
+    public function notify(NotificationType $type, ?Tcc $tcc, iterable $recipients, string $title, string $body, bool $skipActor = true): void
     {
-        $actor = $this->security->getUser();
+        $actor = $skipActor ? $this->security->getUser() : null;
         $sent = [];
         foreach ($recipients as $recipient) {
             if (null === $recipient) {

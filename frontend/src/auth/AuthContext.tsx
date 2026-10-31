@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, refreshSession } from '../api/client';
 import { AuthResponse, Role, User } from '../api/types';
@@ -45,21 +46,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<User | null>(null);
   const [activeRole, setActiveRoleState] = useState<Role | null>(null);
+  // Dados em cache (TCCs, avisos) são de quem estava logado: não passam para o próximo usuário
+  const queryClient = useQueryClient();
 
   const startSession = useCallback((data: AuthResponse) => {
+    queryClient.clear();
     session.setToken(data.accessToken);
     setUser(data.user);
     setActiveRoleState(pickActiveRole(data.user, readStoredRole()));
     setStatus('authenticated');
     return data.user;
-  }, []);
+  }, [queryClient]);
 
   const endSession = useCallback(() => {
+    queryClient.clear();
     session.setToken(null);
     setUser(null);
     setActiveRoleState(null);
     setStatus('anonymous');
-  }, []);
+  }, [queryClient]);
 
   // Ao abrir o app, tenta restaurar a sessão pelo cookie de refresh
   useEffect(() => {

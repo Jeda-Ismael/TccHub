@@ -478,7 +478,7 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 
 ## 9. Notificações
 
-**Hoje (Fase 6, sem e-mail):** os avisos do sininho são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Não há fila nem `worker`. Quem fez a ação não recebe aviso do que ele mesmo fez.
+**Hoje (Fase 6, sem e-mail):** os avisos do sininho são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Não há fila nem `worker`. Quem fez a ação não recebe aviso do que ele mesmo fez, exceto quando o aviso é uma tarefa nova para ele (`DECISION_PENDING`).
 
 ```
 Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / DefenseService::schedule
@@ -490,11 +490,11 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 | `TCC_SUBMITTED` | `submit` / `resubmit` | Orientador |
 | `BOARD_ASSIGNED` | Incluído numa banca (só os novos) | Avaliador |
 | `EVALUATION_OPEN` | `SENT_TO_EVALUATION` | Banca e aluno |
-| `CORRECTIONS_REQUESTED` | Volta para o aluno | Aluno (com o comentário) |
+| `CORRECTIONS_REQUESTED` | Volta para o aluno | Aluno (pela banca: aponta os pareceres; pelo orientador: com o comentário dele) |
 | `FINAL_REVIEW_PENDING` | Banca aprovou | Orientador |
-| `DEFENSE_PENDING` | Aprovado para a defesa, ou nova defesa liberada | Aluno e orientador ("Agende a defesa") |
+| `DEFENSE_PENDING` | Aprovado para a defesa (aluno) ou nova defesa liberada (aluno e orientador) | Aluno / orientador |
 | `DEFENSE_SCHEDULED` | Defesa agendada ou reagendada | Aluno, orientador, banca |
-| `DECISION_PENDING` | Média abaixo do mínimo | Todos com papel de coordenação |
+| `DECISION_PENDING` | Média abaixo do mínimo | Todos com papel de coordenação, inclusive quem deu a última nota (é uma tarefa nova) |
 | `TCC_APPROVED` / `TCC_REJECTED` | Estado final | Aluno, orientador |
 | `GRADES_PENDING` | Horário da defesa chegou | *Adiado (precisa do agendador, entra com o e-mail)* |
 | `PUBLICATION_REQUESTED` | Aluno autorizou e o TCC está aprovado | Coordenação *(Fase 7)* |

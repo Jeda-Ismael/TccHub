@@ -55,14 +55,18 @@ final class TccNotificationSubscriber implements EventSubscriberInterface
             TccStatus::SentToEvaluation => $this->sentToEvaluation($tcc),
             TccStatus::CorrectionsRequested => $this->send(NotificationType::CorrectionsRequested, $tcc, [$student],
                 'Correções pedidas no seu TCC',
-                $comment ?? 'Veja os comentários, envie a versão corrigida do PDF e reenvie o TCC.'),
+                'board_request_corrections' === $transition->getName() || null === $comment
+                    ? 'A banca terminou a avaliação e pediu correções. Veja os pareceres, envie a versão corrigida do PDF e reenvie o TCC.'
+                    : 'Comentário do orientador: '.$comment),
             TccStatus::AdvisorFinalReview => $this->send(NotificationType::FinalReviewPending, $tcc, [$advisor],
                 'Revisão final pendente',
                 \sprintf('A banca aprovou "%s". Falta a sua revisão final.', $title)),
             TccStatus::AwaitingDefense => $this->awaitingDefense($tcc, 'allow_new_defense' === $transition->getName()),
-            TccStatus::AwaitingDecision => $this->send(NotificationType::DecisionPending, $tcc, $this->users->findByRole(Role::Coordination),
+            // Tarefa nova: avisa também o coordenador que estava na banca e deu a última nota
+            TccStatus::AwaitingDecision => $this->notifier->notify(NotificationType::DecisionPending, $tcc, $this->users->findByRole(Role::Coordination),
                 'Decisão pendente sobre uma defesa',
-                \sprintf('"%s" (%s) ficou abaixo da nota mínima. %s', $title, $student->getName(), $comment ?? '')),
+                trim(\sprintf('"%s" (%s) ficou abaixo da nota mínima. %s', $title, $student->getName(), $comment ?? '')),
+                skipActor: false),
             TccStatus::Approved => $this->send(NotificationType::TccApproved, $tcc, [$student, $advisor],
                 'TCC aprovado',
                 \sprintf('"%s" foi aprovado com média final %s.', $title, str_replace('.', ',', (string) $tcc->getFinalGrade()))),
@@ -93,12 +97,10 @@ final class TccNotificationSubscriber implements EventSubscriberInterface
             return;
         }
 
+        // O orientador não é avisado: foi ele quem aprovou (e a tela dele já pede o agendamento)
         $this->send(NotificationType::DefensePending, $tcc, [$tcc->getStudent()],
             'Aprovado para a defesa',
             'Seu TCC foi aprovado para a defesa. A data aparece aqui quando for agendada.');
-        $this->send(NotificationType::DefensePending, $tcc, [$tcc->getAdvisor()],
-            'Agende a defesa',
-            \sprintf('"%s" está pronto para a defesa. Agende a data e o local.', $tcc->getTitle()));
     }
 
     /** @return list<User> */

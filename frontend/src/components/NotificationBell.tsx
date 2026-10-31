@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications, useUnreadCount } from '../api/hooks';
 import { AppNotification, Role } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { QueryStatus } from './QueryStatus';
 import { formatDateTime } from '../utils/dates';
 
 /** Tela do TCC conforme o papel com que o aviso deve ser aberto. */
@@ -22,18 +23,20 @@ export function notificationPath(n: AppNotification): string | null {
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { data: unread = 0 } = useUnreadCount();
-  const { data, isLoading } = useNotifications(open);
+  const { data, isLoading, error } = useNotifications(open);
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
   const { user, setActiveRole } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Chegou aviso novo: algo mudou num TCC, então as telas abertas recarregam
-  const previous = useRef(unread);
+  // Chegou aviso novo: algo mudou num TCC, então as telas abertas recarregam.
+  // A primeira leitura do contador só registra o valor.
+  const previous = useRef<number | null>(null);
   useEffect(() => {
-    if (unread > previous.current) {
+    if (previous.current !== null && unread > previous.current) {
       qc.invalidateQueries({ queryKey: ['tccs'] });
       qc.invalidateQueries({ queryKey: ['tcc'] });
       qc.invalidateQueries({ queryKey: ['notifications', 'list'] });
@@ -48,7 +51,10 @@ export function NotificationBell() {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
     };
     document.addEventListener('mousedown', onClick);
     document.addEventListener('keydown', onKey);
@@ -71,14 +77,18 @@ export function NotificationBell() {
 
   return (
     <div className="bell" ref={ref}>
-      <button type="button" className="bell-button" aria-label={label} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button ref={buttonRef} type="button" className="bell-button" aria-label={label} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path
             fill="currentColor"
             d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z"
           />
         </svg>
-        {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
+        {unread > 0 && (
+          <span className="bell-count" aria-hidden="true">
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -91,7 +101,11 @@ export function NotificationBell() {
               </button>
             )}
           </div>
-          {isLoading && <p className="muted bell-empty">Carregando...</p>}
+          {(isLoading || error) && (
+            <div className="bell-empty">
+              <QueryStatus isLoading={isLoading} error={error} />
+            </div>
+          )}
           {data && data.items.length === 0 && <p className="muted bell-empty">Nenhuma notificação.</p>}
           {data && data.items.length > 0 && (
             <ul className="bell-list">

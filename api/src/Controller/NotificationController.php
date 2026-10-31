@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Entity\Notification;
 use App\Entity\User;
+use App\Enum\NotificationType;
 use App\Enum\Role;
 use App\Repository\NotificationRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -92,9 +93,13 @@ final class NotificationController extends AbstractController
             // Com que papel abrir o TCC (a tela muda conforme o vínculo de quem recebeu)
             'as' => null === $tcc ? null : match (true) {
                 $tcc->isAuthoredBy($user) => Role::Student->apiName(),
+                // A decisão é tarefa da coordenação, mesmo para quem também está na banca
+                NotificationType::DecisionPending === $n->getType() && $user->hasRole(Role::Coordination) => Role::Coordination->apiName(),
                 isset($boardTccIds[$tcc->getId()->toRfc4122()]) => Role::Evaluator->apiName(),
                 $tcc->getAdvisor()?->getId()->equals($user->getId()) ?? false => Role::Advisor->apiName(),
-                default => Role::Coordination->apiName(),
+                $user->hasRole(Role::Coordination) => Role::Coordination->apiName(),
+                // Perdeu o vínculo (ex.: saiu da banca): o aviso fica sem link
+                default => null,
             },
             'read' => $n->isRead(),
             'createdAt' => $n->getCreatedAt()->setTimezone($tz)->format(\DATE_ATOM),
