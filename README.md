@@ -38,9 +38,9 @@ docker compose exec php bin/console doctrine:fixtures:load -n   # usuários de t
 
 Contas de teste (senha `123456`): `aluno@hubtcc.dev`, `orientador@hubtcc.dev`, `avaliador1@hubtcc.dev`, `avaliador2@hubtcc.dev`, `coordenacao@hubtcc.dev` e `professor@hubtcc.dev` (Orientador + Avaliador + Coordenação, para testar o seletor "Ver como").
 
-> Migração em andamento: login, usuários, cadastros (áreas, palavras-chave, prazos, configurações) e o fluxo do TCC até a defesa já usam o Symfony. Agendamento da defesa e notas chegam na Fase 5.
+> Migração em andamento: login, usuários, cadastros e o fluxo completo do TCC (até a defesa, as notas e o resultado) já usam o Symfony. Faltam notificações por e-mail (Fase 6) e o repositório público (Fase 7).
 
-**Roteiro para testar o fluxo:** entre como `aluno@` e cadastre o TCC, envie um PDF e submeta → como `coordenacao@`, abra o TCC e monte a banca com Arthur e Alice → como `orientador@`, aprove e envie à banca → como `avaliador1@` e `avaliador2@`, dê os pareceres → se alguém pedir correções, o TCC volta ao aluno; se todos aprovarem, vai para a revisão final do orientador e depois para "Aguardando defesa".
+**Roteiro para testar o fluxo:** entre como `aluno@` e cadastre o TCC, envie um PDF e submeta → como `coordenacao@`, abra o TCC e monte a banca com Arthur e Alice → como `orientador@`, aprove e envie à banca → como `avaliador1@` e `avaliador2@`, dê os pareceres → se alguém pedir correções, o TCC volta ao aluno; se todos aprovarem, vai para a revisão final do orientador e depois para "Aguardando defesa" → o orientador agenda a defesa (para testar na hora, marque um horário que já passou) → cada avaliador lança as notas de projeto e apresentação → a média sai sozinha: acima da mínima (6,0) o TCC é **aprovado**; abaixo, a coordenação decide entre nova defesa e reprovação.
 
 ### Ligar sozinho junto com o computador
 
