@@ -20,6 +20,7 @@ export function makeTcc(overrides: Partial<Tcc> = {}): Tcc {
     publishedAt: null,
     createdAt: '2026-10-01T10:00:00-03:00',
     updatedAt: '2026-10-01T10:00:00-03:00',
+    evaluationPeriodOpen: true,
     permissions: { edit: false, upload: false, submit: false, advisorReview: false, evaluate: false, manageBoard: false },
     ...overrides,
   };

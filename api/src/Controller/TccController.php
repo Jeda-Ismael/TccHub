@@ -120,12 +120,18 @@ final class TccController extends AbstractController
             mimeTypes: ['application/pdf'],
             maxSizeMessage: 'O PDF pode ter no máximo 20 MB.',
             mimeTypesMessage: 'Envie um arquivo PDF.',
+            uploadIniSizeErrorMessage: 'O PDF pode ter no máximo 20 MB.',
+            uploadFormSizeErrorMessage: 'O PDF pode ter no máximo 20 MB.',
+            uploadPartialErrorMessage: 'O envio do arquivo foi interrompido. Tente de novo.',
+            uploadNoFileErrorMessage: 'Envie o arquivo PDF.',
+            uploadErrorMessage: 'Não foi possível receber o arquivo. Tente de novo.',
+            disallowEmptyMessage: 'O arquivo está vazio.',
         ));
         foreach ($violations as $violation) {
             throw new DomainRuleViolation((string) $violation->getMessage());
         }
 
-        $this->service->uploadDocument($tcc, $file, $file->getClientOriginalName(), $user);
+        $this->service->uploadDocument($tcc, $file, self::safeFileName($file->getClientOriginalName()), $user);
 
         return $this->json($this->view->present($tcc, $user), Response::HTTP_CREATED);
     }
@@ -190,6 +196,22 @@ final class TccController extends AbstractController
         $this->service->evaluate($tcc, $user, $payload->verdictEnum(), $payload->comment);
 
         return $this->json($this->view->present($tcc, $user));
+    }
+
+    /** Nome original só para exibição: sem caminho e no máximo 255 caracteres (mantendo a extensão). */
+    private static function safeFileName(string $name): string
+    {
+        $name = trim(basename(str_replace('\\', '/', $name)));
+        if ('' === $name) {
+            return 'tcc.pdf';
+        }
+        if (mb_strlen($name) <= 255) {
+            return $name;
+        }
+        $extension = pathinfo($name, \PATHINFO_EXTENSION);
+        $suffix = '' === $extension ? '' : '.'.mb_substr($extension, 0, 10);
+
+        return mb_substr(pathinfo($name, \PATHINFO_FILENAME), 0, 255 - mb_strlen($suffix)).$suffix;
     }
 
     private function find(string $id, string $attribute): Tcc

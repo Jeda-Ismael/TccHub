@@ -48,6 +48,10 @@ class Tcc
     #[ORM\Column]
     private bool $publicationAuthorized = false;
 
+    /** Versão do PDF quando as correções foram pedidas; o reenvio exige uma versão mais nova. */
+    #[ORM\Column(nullable: true)]
+    private ?int $correctionsRequestedAtVersion = null;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $publishedAt = null;
 
@@ -261,6 +265,22 @@ class Tcc
         return $document;
     }
 
+    /** Marca a versão atual do PDF ao pedir correções (chamado pelo workflow). */
+    public function markCorrectionsRequested(): void
+    {
+        $this->correctionsRequestedAtVersion = $this->getCurrentDocument()?->getVersion() ?? 0;
+    }
+
+    /** Depois de correções pedidas, só reenvia com um PDF enviado depois do pedido. */
+    public function hasDocumentSinceCorrectionsRequested(): bool
+    {
+        if (null === $this->correctionsRequestedAtVersion) {
+            return true;
+        }
+
+        return ($this->getCurrentDocument()?->getVersion() ?? 0) > $this->correctionsRequestedAtVersion;
+    }
+
     // —— Banca ————————————————————————————————————————————————————
 
     /** @return Collection<int, BoardMember> */
@@ -280,7 +300,8 @@ class Tcc
         return null;
     }
 
-    public function addBoardMember(User $evaluator): BoardMember
+    /** Lança DomainRuleViolation se o usuário não puder entrar na banca deste TCC. */
+    public function assertCanJoinBoard(User $evaluator): void
     {
         $this->assertBoardIsEditable();
 
@@ -293,6 +314,11 @@ class Tcc
         if (null !== $this->findBoardMember($evaluator)) {
             throw new DomainRuleViolation(\sprintf('%s já faz parte da banca.', $evaluator->getName()));
         }
+    }
+
+    public function addBoardMember(User $evaluator): BoardMember
+    {
+        $this->assertCanJoinBoard($evaluator);
 
         $member = new BoardMember($this, $evaluator);
         $this->boardMembers->add($member);

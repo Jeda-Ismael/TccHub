@@ -3,14 +3,14 @@ import { FormEvent, useState } from 'react';
 import { useCreatePeriod, useDeletePeriod, usePeriods, useUpdatePeriod } from '../../api/hooks';
 import { SubmissionPeriod } from '../../api/types';
 
+// A API já diz se o prazo está aberto agora (no relógio do servidor)
 function isActive(period: SubmissionPeriod) {
-  const now = new Date();
-  return new Date(period.startDate) <= now && now <= new Date(period.endDate);
+  return period.active;
 }
 
-// startDate/endDate são datas de calendário (meia-noite UTC), não instantes.
-// Formatar via toLocaleDateString() as reinterpreta no fuso local e pode
-// exibir o dia anterior — extraímos o AAAA-MM-DD cru do ISO em vez disso.
+// A API devolve as datas no fuso da instituição (ex.: 2026-08-01T00:00:00-03:00).
+// Formatar via toLocaleDateString() as reinterpretaria no fuso do navegador e
+// poderia mostrar outro dia: usamos o AAAA-MM-DD como veio.
 function formatDateOnly(iso: string) {
   const [year, month, day] = iso.slice(0, 10).split('-');
   return `${day}/${month}/${year}`;

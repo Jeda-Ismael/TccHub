@@ -15,6 +15,7 @@ use App\Enum\TccStatus;
 use App\Exception\DomainRuleViolation;
 use App\Exception\TransitionNotAllowed;
 use App\Repository\SettingsRepository;
+use App\Repository\TccRepository;
 use App\Repository\UserRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +36,7 @@ final class TccService
         private readonly EntityManagerInterface $em,
         #[Target('tcc')] private readonly WorkflowInterface $workflow,
         private readonly UserRepository $users,
+        private readonly TccRepository $tccs,
         private readonly SettingsRepository $settings,
         private readonly PeriodChecker $periods,
         private readonly DocumentStorage $storage,
@@ -49,6 +51,10 @@ final class TccService
     {
         if (!$this->periods->isOpen(PeriodType::Submission)) {
             throw new DomainRuleViolation('Não há prazo de submissão de TCC aberto no momento.');
+        }
+        // Um TCC por vez: um novo só depois de o anterior ser aprovado ou reprovado
+        if ($this->tccs->hasActiveFor($student)) {
+            throw new DomainRuleViolation('Você já tem um TCC em andamento.');
         }
 
         $tcc = new Tcc($title, $abstract, $student);
@@ -97,8 +103,15 @@ final class TccService
         $path = $this->storage->store($tcc, $file);
 
         try {
-            $tcc->addDocument($path, $originalName, $size, $sha256, $uploadedBy);
-            $this->em->flush();
+            // Travado: dois envios ao mesmo tempo não disputam o mesmo número de versão
+            $this->transactional(function () use ($tcc, $path, $originalName, $size, $sha256, $uploadedBy): void {
+                $this->lockAndReload($tcc);
+                if (!$tcc->getStatus()->isEditableByStudent()) {
+                    throw new TransitionNotAllowed('O TCC mudou de status e não aceita mais envio de PDF.');
+                }
+                $tcc->addDocument($path, $originalName, $size, $sha256, $uploadedBy);
+                $this->em->flush();
+            });
         } catch (\Throwable $e) {
             $this->storage->discard($path);
             throw $e;
@@ -108,9 +121,12 @@ final class TccService
     /** Primeiro envio (rascunho) ou reenvio depois de correções. */
     public function submit(Tcc $tcc): void
     {
-        $transition = TccStatus::CorrectionsRequested === $tcc->getStatus() ? 'resubmit' : 'submit';
-        $this->apply($tcc, $transition);
-        $this->em->flush();
+        $this->transactional(function () use ($tcc): void {
+            $this->lockAndReload($tcc);
+            $transition = TccStatus::CorrectionsRequested === $tcc->getStatus() ? 'resubmit' : 'submit';
+            $this->apply($tcc, $transition);
+            $this->em->flush();
+        });
     }
 
     /**
@@ -124,27 +140,31 @@ final class TccService
             throw new DomainRuleViolation('Explique o motivo no comentário.');
         }
 
-        $transition = match (true) {
-            TccStatus::AdvisorFinalReview === $tcc->getStatus() => $approve ? 'final_approve' : 'final_request_corrections',
-            default => $approve ? 'advisor_approve' : 'advisor_reject',
-        };
+        $this->transactional(function () use ($tcc, $approve, $comment): void {
+            $this->lockAndReload($tcc);
+            $transition = match (true) {
+                TccStatus::AdvisorFinalReview === $tcc->getStatus() => $approve ? 'final_approve' : 'final_request_corrections',
+                default => $approve ? 'advisor_approve' : 'advisor_reject',
+            };
 
-        $this->apply($tcc, $transition, $comment);
-        $this->em->flush();
+            $this->apply($tcc, $transition, $comment);
+            $this->em->flush();
+        });
     }
 
     /**
      * Define a banca inteira (adiciona e remove o que mudou). Pareceres de quem
      * continua são mantidos; se a troca completar os pareceres, a rodada fecha.
+     * Travado como o parecer: a troca e um voto simultâneo não se perdem.
      *
      * @param list<string> $evaluatorIds
      */
     public function assignBoard(Tcc $tcc, array $evaluatorIds): void
     {
         $evaluatorIds = array_values(array_unique($evaluatorIds));
-        $max = $this->settings->get()->getBoardMaxSize();
-        if (\count($evaluatorIds) > $max) {
-            throw new DomainRuleViolation(\sprintf('A banca pode ter no máximo %d avaliadores.', $max));
+        $settings = $this->settings->get();
+        if (\count($evaluatorIds) > $settings->getBoardMaxSize()) {
+            throw new DomainRuleViolation(\sprintf('A banca pode ter no máximo %d avaliadores.', $settings->getBoardMaxSize()));
         }
 
         $wanted = [];
@@ -154,30 +174,43 @@ final class TccService
             $wanted[$evaluator->getId()->toRfc4122()] = $evaluator;
         }
 
-        foreach ($tcc->getBoardMembers()->toArray() as $member) {
-            if (!isset($wanted[$member->getEvaluator()->getId()->toRfc4122()])) {
-                $tcc->removeBoardMember($member->getEvaluator());
-            }
-        }
-        foreach ($wanted as $evaluator) {
-            if (null === $tcc->findBoardMember($evaluator)) {
-                $tcc->addBoardMember($evaluator);
-            }
-        }
+        $this->transactional(function () use ($tcc, $wanted, $settings): void {
+            $this->lockAndReload($tcc);
 
-        if (TccStatus::SentToEvaluation === $tcc->getStatus()) {
-            if ($tcc->getBoardMembers()->isEmpty()) {
-                throw new DomainRuleViolation('Um TCC em avaliação precisa ter pelo menos um avaliador.');
+            // Durante a avaliação a banca continua precisando do tamanho mínimo
+            if (TccStatus::SentToEvaluation === $tcc->getStatus() && \count($wanted) < $settings->getBoardMinSize()) {
+                throw new DomainRuleViolation(\sprintf('Com o TCC em avaliação, a banca precisa manter pelo menos %d avaliadores.', $settings->getBoardMinSize()));
             }
-            $this->closeRoundIfComplete($tcc);
-        }
 
-        $this->em->flush();
+            // Valida todos os novos antes de mexer: a banca não fica pela metade
+            foreach ($wanted as $evaluator) {
+                if (null === $tcc->findBoardMember($evaluator)) {
+                    $tcc->assertCanJoinBoard($evaluator);
+                }
+            }
+            foreach ($tcc->getBoardMembers()->toArray() as $member) {
+                if (!isset($wanted[$member->getEvaluator()->getId()->toRfc4122()])) {
+                    $tcc->removeBoardMember($member->getEvaluator());
+                }
+            }
+            foreach ($wanted as $evaluator) {
+                if (null === $tcc->findBoardMember($evaluator)) {
+                    $tcc->addBoardMember($evaluator);
+                }
+            }
+
+            if (TccStatus::SentToEvaluation === $tcc->getStatus()) {
+                $this->closeRoundIfComplete($tcc);
+            }
+
+            $this->em->flush();
+        });
     }
 
     /**
-     * Parecer de um avaliador. Roda numa transação com o TCC travado: se dois
-     * avaliadores votarem juntos, o segundo espera e vê o voto do primeiro.
+     * Parecer de um avaliador, uma vez por rodada. Roda numa transação com o TCC
+     * travado e os votos recarregados: se dois avaliadores votarem juntos, o
+     * segundo espera o primeiro terminar e enxerga o voto dele.
      */
     public function evaluate(Tcc $tcc, User $evaluator, EvaluationVerdict $verdict, ?string $comment): void
     {
@@ -185,9 +218,8 @@ final class TccService
             throw new DomainRuleViolation('Não há prazo de avaliação aberto no momento.');
         }
 
-        $this->em->wrapInTransaction(function () use ($tcc, $evaluator, $verdict, $comment): void {
-            $this->em->lock($tcc, LockMode::PESSIMISTIC_WRITE);
-            $this->em->refresh($tcc);
+        $this->transactional(function () use ($tcc, $evaluator, $verdict, $comment): void {
+            $this->lockAndReload($tcc);
 
             if (TccStatus::SentToEvaluation !== $tcc->getStatus()) {
                 throw new TransitionNotAllowed('Este TCC não está mais em avaliação pela banca.');
@@ -200,6 +232,40 @@ final class TccService
             $this->closeRoundIfComplete($tcc);
             $this->em->flush();
         });
+    }
+
+    /**
+     * Trava a linha do TCC até o fim da transação e recarrega o que outra
+     * requisição pode ter mudado. O refresh do TCC recarrega a lista da banca,
+     * mas os BoardMember já em memória mantêm os dados antigos: por isso cada um
+     * é recarregado também (sem isso, um voto recém-gravado parecia pendente e
+     * a rodada nunca fechava).
+     */
+    /**
+     * Transação que desfaz tudo se algo falhar, sem fechar o EntityManager
+     * (o wrapInTransaction do Doctrine fecha, e uma regra de negócio barrada
+     * é um caso normal, não um erro do banco).
+     */
+    private function transactional(callable $operation): void
+    {
+        $connection = $this->em->getConnection();
+        $connection->beginTransaction();
+        try {
+            $operation();
+            $connection->commit();
+        } catch (\Throwable $e) {
+            $connection->rollBack();
+            throw $e;
+        }
+    }
+
+    private function lockAndReload(Tcc $tcc): void
+    {
+        $this->em->lock($tcc, LockMode::PESSIMISTIC_WRITE);
+        $this->em->refresh($tcc);
+        foreach ($tcc->getBoardMembers() as $member) {
+            $this->em->refresh($member);
+        }
     }
 
     /** Quando todos deram parecer: alguma correção devolve ao aluno; senão, vai para a revisão final. */

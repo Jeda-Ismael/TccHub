@@ -27,3 +27,13 @@ services:
     App\EventListener\ApiExceptionListener:
         arguments:
             $debug: '%kernel.debug%'
+
+when@test:
+    services:
+        # Conta as consultas SQL para os testes de desempenho (N+1)
+        App\Tests\Support\QueryCounter:
+            public: true
+        app.test.query_counting_middleware:
+            class: Doctrine\DBAL\Logging\Middleware
+            arguments: ['@App\Tests\Support\QueryCounter']
+            tags: [doctrine.middleware]
