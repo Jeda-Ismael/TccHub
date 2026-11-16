@@ -3,6 +3,7 @@ import { apiErrorMessage } from '../api/client';
 import { useDecide, useGradeDefense, useScheduleDefense } from '../api/hooks';
 import { Defense, DefenseOutcome, Tcc } from '../api/types';
 import { formatDate, formatLongDateTime } from '../utils/dates';
+import { toast } from './Toaster';
 
 const OUTCOME_LABELS: Record<DefenseOutcome, string> = {
   PENDING: 'Em andamento',
@@ -146,7 +147,7 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
     setMessage(null);
     try {
       await schedule.mutateAsync({ scheduledAt, location: location.trim() || undefined, meetingUrl: meetingUrl.trim() || undefined });
-      setMessage({ text: 'Defesa agendada.', error: false });
+      toast('Defesa agendada.');
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível agendar.'), error: true });
     }
@@ -157,7 +158,11 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
       <h4>{defense.scheduledAt ? 'Reagendar' : 'Agendar a defesa'}</h4>
       <div className="form-group">
         <label htmlFor="defense-at">Data e hora</label>
-        <input id="defense-at" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} required />
+        <input id="defense-at" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} required aria-describedby="defense-at-preview" />
+        {/* O campo segue o idioma do navegador; aqui a data aparece sempre em português */}
+        <p id="defense-at-preview" className="field-hint" aria-live="polite">
+          {scheduledAt.length >= 16 ? formatLongDateTime(scheduledAt) : 'Escolha o dia e o horário.'}
+        </p>
       </div>
       <div className="form-group">
         <label htmlFor="defense-location">Sala (ou deixe vazio se for on-line)</label>
@@ -196,7 +201,7 @@ function GradeForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
         presentationGrade: Number(presentationGrade.replace(',', '.')),
         comment: comment.trim() || undefined,
       });
-      setMessage({ text: updated.defense?.outcome === 'PENDING' ? 'Notas registradas.' : 'Notas registradas. A defesa foi encerrada.', error: false });
+      toast(updated.defense?.outcome === 'PENDING' ? 'Notas registradas.' : 'Notas registradas. A defesa foi encerrada.');
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível registrar as notas.'), error: true });
     }

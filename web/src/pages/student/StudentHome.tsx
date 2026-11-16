@@ -4,18 +4,20 @@ import { TccInput, useCreateTcc, useKeywords, useSubmitTcc, useTcc, useTccs, use
 import { Tcc, TccStatus } from '../../api/types';
 import { BoardList } from '../../components/BoardList';
 import { DefenseSection } from '../../components/DefenseSection';
+import { FileDropzone } from '../../components/FileDropzone';
 import { PublicationCard } from '../../components/PublicationCard';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
+import { toast } from '../../components/Toaster';
 
 /** O que o aluno precisa saber/fazer em cada status. */
 const NEXT_STEP: Record<TccStatus, string> = {
-  DRAFT: 'Preencha os dados, escolha o orientador, envie o PDF e clique em "Submeter TCC".',
+  DRAFT: 'Preencha os dados, escolha o orientador, escolha o PDF e clique em "Enviar PDF e submeter TCC".',
   SUBMITTED: 'Seu TCC está com o orientador para a primeira revisão.',
   RESUBMITTED: 'Sua nova versão está com o orientador.',
   SENT_TO_EVALUATION: 'A banca está avaliando seu TCC. Os pareceres aparecem quando todos terminarem.',
-  CORRECTIONS_REQUESTED: 'Faça as correções pedidas, envie a nova versão do PDF e clique em "Reenviar TCC".',
+  CORRECTIONS_REQUESTED: 'Faça as correções pedidas, escolha a nova versão do PDF e clique em "Enviar PDF e reenviar TCC".',
   ADVISOR_FINAL_REVIEW: 'A banca aprovou! Falta a revisão final do orientador.',
   AWAITING_DEFENSE: 'Aprovado para a defesa! Veja abaixo a data e o local quando forem agendados.',
   AWAITING_DECISION: 'A coordenação está decidindo os próximos passos da sua defesa.',
@@ -114,7 +116,7 @@ function TccForm({ tcc, onCreated }: { tcc?: Tcc; onCreated?: () => void }) {
     try {
       if (tcc) {
         await updateTcc.mutateAsync(data);
-        setMessage({ text: 'Dados salvos.', error: false });
+        toast('Dados salvos.');
       } else {
         await createTcc.mutateAsync(data);
         onCreated?.();
@@ -194,49 +196,75 @@ function UploadAndSubmit({ tcc }: { tcc: Tcc }) {
   const uploadDoc = useUploadDocument(tcc.id);
   const submitTcc = useSubmitTcc(tcc.id);
   const [file, setFile] = useState<File | null>(null);
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const isResubmission = tcc.status === 'CORRECTIONS_REQUESTED';
+  const action = isResubmission ? 'reenviar' : 'submeter';
+  const pending = uploadDoc.isPending || submitTcc.isPending;
 
-  async function handleUpload() {
+  /** Envia o PDF escolhido (se houver) e depois submete, num clique só. */
+  async function handleSend() {
+    setError(null);
+    let step: 'upload' | 'submit' = 'upload';
+    try {
+      if (file) {
+        await uploadDoc.mutateAsync(file);
+        setFile(null);
+      }
+      step = 'submit';
+      await submitTcc.mutateAsync();
+      toast(isResubmission ? 'TCC reenviado ao orientador.' : 'TCC submetido ao orientador.');
+    } catch (err) {
+      setError(apiErrorMessage(err, step === 'upload' ? 'Não foi possível enviar o PDF.' : `Não foi possível ${action}.`));
+    }
+  }
+
+  /** Guarda o PDF sem submeter ainda (para quem quer revisar antes). */
+  async function handleSaveOnly() {
     if (!file) return;
-    setMessage(null);
+    setError(null);
     try {
       const updated = await uploadDoc.mutateAsync(file);
       setFile(null);
-      setMessage({ text: `PDF enviado (versão ${updated.document?.version}).`, error: false });
+      toast(`PDF salvo (versão ${updated.document?.version}).`);
     } catch (err) {
-      setMessage({ text: apiErrorMessage(err, 'Não foi possível enviar o PDF.'), error: true });
+      setError(apiErrorMessage(err, 'Não foi possível enviar o PDF.'));
     }
   }
 
-  async function handleSubmit() {
-    setMessage(null);
-    try {
-      await submitTcc.mutateAsync();
-    } catch (err) {
-      setMessage({ text: apiErrorMessage(err, 'Não foi possível submeter.'), error: true });
-    }
-  }
+  const sendLabel = pending
+    ? 'Enviando...'
+    : file
+      ? isResubmission
+        ? 'Enviar PDF e reenviar TCC'
+        : 'Enviar PDF e submeter TCC'
+      : isResubmission
+        ? 'Reenviar TCC'
+        : 'Submeter TCC';
 
   return (
     <div className="card">
       <h3>PDF e envio</h3>
-      {isResubmission && <p className="muted">Envie a versão corrigida antes de reenviar. As versões anteriores ficam guardadas.</p>}
-      <div className="form-group">
-        <label htmlFor="tcc-file">Arquivo PDF (até 20 MB)</label>
-        <input id="tcc-file" type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </div>
+      <p className="muted">
+        {isResubmission
+          ? 'Escolha a versão corrigida e clique em reenviar. As versões anteriores ficam guardadas.'
+          : tcc.document
+            ? 'O PDF atual já está salvo. Escolha outro só se quiser trocar.'
+            : 'Escolha o PDF do TCC e clique em submeter.'}
+      </p>
+      {tcc.permissions.upload && <FileDropzone id="tcc-file" label="Arquivo PDF" file={file} onChange={setFile} disabled={pending} />}
       <div className="btn-row">
-        <button type="button" className="secondary" onClick={handleUpload} disabled={!file || uploadDoc.isPending}>
-          {uploadDoc.isPending ? 'Enviando...' : 'Enviar PDF'}
+        <button type="button" onClick={handleSend} disabled={pending || (!tcc.permissions.submit && !file)}>
+          {sendLabel}
         </button>
-        <button type="button" onClick={handleSubmit} disabled={!tcc.permissions.submit || submitTcc.isPending}>
-          {isResubmission ? 'Reenviar TCC' : 'Submeter TCC'}
-        </button>
+        {file && (
+          <button type="button" className="secondary" onClick={handleSaveOnly} disabled={pending}>
+            Só salvar o PDF
+          </button>
+        )}
       </div>
-      {message && (
-        <p className={message.error ? 'error-text' : 'muted'} role={message.error ? 'alert' : undefined} style={{ marginTop: '0.75rem' }}>
-          {message.text}
+      {error && (
+        <p className="error-text form-feedback" role="alert">
+          {error}
         </p>
       )}
     </div>

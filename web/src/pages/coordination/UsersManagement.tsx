@@ -5,6 +5,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useAllUsers, useCreateUser, useDeleteUser, useUpdateUserRoles } from '../../api/hooks';
 import { ROLE_LABELS, ROLES, Role, User } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
+import { toast } from '../../components/Toaster';
 
 /**
  * Aluno é exclusivo: marcar Aluno desmarca os outros papéis, e marcar
@@ -65,6 +66,7 @@ export function UsersManagement() {
     setError(null);
     try {
       await updateRoles.mutateAsync(editing);
+      toast('Papéis atualizados.');
       setEditing(null);
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível alterar os papéis deste usuário.'));
@@ -75,6 +77,7 @@ export function UsersManagement() {
     setError(null);
     try {
       await deleteUser.mutateAsync(user.id);
+      toast('Usuário excluído.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível excluir este usuário.'));
     } finally {
@@ -87,6 +90,7 @@ export function UsersManagement() {
     setCreateError(null);
     try {
       await createUser.mutateAsync({ name: newName, email: newEmail, password: newPassword, roles: newRoles });
+      toast('Usuário criado.');
       setNewName('');
       setNewEmail('');
       setNewPassword('');

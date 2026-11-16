@@ -11,6 +11,7 @@ import {
   useUpdateThematicArea,
 } from '../../api/hooks';
 import { Keyword, ThematicArea } from '../../api/types';
+import { toast } from '../../components/Toaster';
 
 export function Catalogs() {
   return (
@@ -35,6 +36,7 @@ function ThematicAreasCard() {
     if (!name.trim()) return;
     try {
       await createArea.mutateAsync(name.trim());
+      toast('Área criada.');
       setName('');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível criar a área temática'));
@@ -45,6 +47,7 @@ function ThematicAreasCard() {
     setError(null);
     try {
       await deleteArea.mutateAsync(area.id);
+      toast('Área excluída.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível excluir'));
     }
@@ -88,6 +91,7 @@ function KeywordsCard() {
     if (!name.trim()) return;
     try {
       await createKeyword.mutateAsync(name.trim());
+      toast('Palavra-chave criada.');
       setName('');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível criar a palavra-chave'));
@@ -98,6 +102,7 @@ function KeywordsCard() {
     setError(null);
     try {
       await deleteKeyword.mutateAsync(keyword.id);
+      toast('Palavra-chave excluída.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível excluir'));
     }

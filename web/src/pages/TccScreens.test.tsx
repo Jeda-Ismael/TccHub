@@ -9,12 +9,16 @@ import { EvaluatorHome } from './evaluator/EvaluatorHome';
 import { EvaluatorTccDetail } from './evaluator/EvaluatorTccDetail';
 import { mockApi } from '../test/mockApi';
 import { makeTcc, perms } from '../test/fixtures';
+import { Toaster } from '../components/Toaster';
 
 function renderWithProviders(ui: ReactNode, path = '/') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
+        {ui}
+        <Toaster />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -58,6 +62,67 @@ describe('tela do aluno', () => {
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Submeter TCC' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Envie o PDF do TCC antes de submeter.');
+  });
+});
+
+describe('envio do PDF pelo aluno', () => {
+  const pdf = () => new File(['%PDF-1.4'], 'tcc-final.pdf', { type: 'application/pdf' });
+
+  function setup(status: 'DRAFT' | 'CORRECTIONS_REQUESTED' = 'CORRECTIONS_REQUESTED') {
+    const tcc = makeTcc({ status, permissions: perms({ edit: true, upload: true, submit: true }) });
+    const calls = mockApi((config) => {
+      if (config.url === '/tcc/t1/document') return { status: 201, data: { ...tcc, document: { version: 2, originalName: 'tcc-final.pdf', sizeBytes: 8, uploadedAt: '2026-11-16T10:00:00-03:00', downloadUrl: '/x' } } };
+      if (config.url === '/tcc/t1/submit') return { status: 200, data: tcc };
+      if (config.url === '/tcc') return { status: 200, data: [tcc] };
+      if (config.url === '/tcc/t1') return { status: 200, data: tcc };
+      return { status: 200, data: [] };
+    });
+    renderWithProviders(<StudentHome />);
+    return calls;
+  }
+
+  it('envia o PDF e reenvia o TCC num clique só', async () => {
+    const calls = setup();
+    const user = userEvent.setup();
+
+    await user.upload(await screen.findByLabelText('Arquivo PDF'), pdf());
+    expect(screen.getByText('tcc-final.pdf')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Enviar PDF e reenviar TCC' }));
+
+    expect(await screen.findByText('TCC reenviado ao orientador.')).toBeInTheDocument();
+    expect(calls.map((c) => c.url).filter((u) => u === '/tcc/t1/document' || u === '/tcc/t1/submit')).toEqual(['/tcc/t1/document', '/tcc/t1/submit']);
+  });
+
+  it('pode só salvar o PDF, sem submeter', async () => {
+    const calls = setup('DRAFT');
+    const user = userEvent.setup();
+
+    await user.upload(await screen.findByLabelText('Arquivo PDF'), pdf());
+    await user.click(screen.getByRole('button', { name: 'Só salvar o PDF' }));
+
+    expect(await screen.findByText('PDF salvo (versão 2).')).toBeInTheDocument();
+    expect(calls.some((c) => c.url === '/tcc/t1/submit')).toBe(false);
+  });
+
+  it('recusa arquivo que não é PDF antes de enviar', async () => {
+    setup();
+    const user = userEvent.setup({ applyAccept: false });
+
+    await user.upload(await screen.findByLabelText('Arquivo PDF'), new File(['x'], 'foto.png', { type: 'image/png' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Escolha um arquivo PDF.');
+    expect(screen.getByRole('button', { name: 'Reenviar TCC' })).toBeInTheDocument();
+  });
+
+  it('deixa trocar o arquivo escolhido', async () => {
+    setup();
+    const user = userEvent.setup();
+
+    await user.upload(await screen.findByLabelText('Arquivo PDF'), pdf());
+    await user.click(screen.getByRole('button', { name: 'Trocar arquivo' }));
+
+    expect(screen.queryByText('tcc-final.pdf')).not.toBeInTheDocument();
+    expect(screen.getByText('Escolha o PDF')).toBeInTheDocument();
   });
 });
 

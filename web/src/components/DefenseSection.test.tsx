@@ -7,6 +7,7 @@ import { formatDateTime, formatLongDateTime } from '../utils/dates';
 import { Defense, Tcc } from '../api/types';
 import { makeTcc, perms } from '../test/fixtures';
 import { mockApi } from '../test/mockApi';
+import { Toaster } from './Toaster';
 
 function defense(overrides: Partial<Defense> = {}): Defense {
   return {
@@ -27,6 +28,8 @@ function defense(overrides: Partial<Defense> = {}): Defense {
 }
 
 function renderSection(tcc: Tcc) {
+  // Os avisos ficam num container à parte, para não contar como conteúdo da seção
+  render(<Toaster />);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>

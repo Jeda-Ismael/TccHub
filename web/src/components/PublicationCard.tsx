@@ -4,6 +4,7 @@ import { apiErrorMessage } from '../api/client';
 import { useAuthorizePublication, usePublish } from '../api/hooks';
 import { Tcc } from '../api/types';
 import { formatDate } from '../utils/dates';
+import { toast } from './Toaster';
 
 /**
  * Publicação no repositório (TCC aprovado): o aluno autoriza ou retira; a
@@ -47,6 +48,7 @@ function AuthorizeAction({ tcc }: { tcc: Tcc }) {
     setError(null);
     try {
       await authorize.mutateAsync(next);
+      toast(next ? 'Publicação autorizada.' : 'Autorização retirada.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível salvar.'));
     }
@@ -80,6 +82,7 @@ function PublishAction({ tcc }: { tcc: Tcc }) {
     setError(null);
     try {
       await publish.mutateAsync(!published);
+      toast(published ? 'TCC retirado do repositório.' : 'TCC publicado no repositório.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível salvar.'));
     }

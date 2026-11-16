@@ -8,6 +8,7 @@ import { DefenseSection } from '../../components/DefenseSection';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
+import { toast } from '../../components/Toaster';
 
 export function AdvisorTccDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +36,7 @@ function AdvisorReview({ tcc }: { tcc: Tcc }) {
     setError(null);
     try {
       await review.mutateAsync({ approve, comment: comment.trim() || undefined });
+      toast('Revisão registrada.');
       setComment('');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível registrar a revisão.'));

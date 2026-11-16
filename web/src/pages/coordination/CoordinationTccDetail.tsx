@@ -9,6 +9,7 @@ import { PublicationCard } from '../../components/PublicationCard';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
+import { toast } from '../../components/Toaster';
 
 export function CoordinationTccDetail() {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +47,7 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
     setMessage(null);
     try {
       await assignBoard.mutateAsync(selected);
-      setMessage({ text: 'Banca atualizada.', error: false });
+      toast('Banca atualizada.');
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível atualizar a banca.'), error: true });
     }
