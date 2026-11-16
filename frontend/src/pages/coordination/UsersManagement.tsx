@@ -1,6 +1,8 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useCreateUser, useDeleteUser, useUpdateUserRole, useUsers } from '../../api/hooks';
 import { Role, UserSummary } from '../../api/types';
+import { Avatar } from '../../components/Avatar';
+import { SearchIcon } from '../../components/icons';
 
 const ROLES: Role[] = ['STUDENT', 'ADVISOR', 'EVALUATOR', 'COORDINATION'];
 
@@ -42,7 +44,7 @@ export function UsersManagement() {
     });
   }, [users, search, roleFilter]);
 
-  if (isLoading) return <p>Carregando...</p>;
+  if (isLoading) return <p className="loading">Carregando...</p>;
 
   function requestRoleChange(user: UserSummary, role: string) {
     setError(null);
@@ -89,13 +91,26 @@ export function UsersManagement() {
 
   return (
     <div>
-      <div className="card">
-        <h2>Usuários</h2>
-        <p className="muted">Promova um usuário para Orientador, Avaliador ou Coordenação. Novos cadastros (inclusive via Google) entram como Aluno.</p>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>Usuários</h1>
+          <p>Promova um usuário para Orientador, Avaliador ou Coordenação. Novos cadastros (inclusive via Google) entram como Aluno.</p>
+        </div>
+      </div>
 
-        <div className="btn-row" style={{ marginBottom: '1rem' }}>
-          <input placeholder="Buscar por nome ou email..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} style={{ width: 'auto' }}>
+      <div className="card">
+        <div className="toolbar">
+          <div className="search">
+            <SearchIcon />
+            <input
+              type="search"
+              aria-label="Buscar usuário"
+              placeholder="Buscar por nome ou email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select aria-label="Filtrar por papel" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')}>
             <option value="">Todos os papéis</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -106,91 +121,118 @@ export function UsersManagement() {
         </div>
 
         {error && <p className="error-text">{error}</p>}
-        {!filtered.length && <p className="muted">Nenhum usuário corresponde à busca.</p>}
+        {!filtered.length && <div className="empty">Nenhum usuário corresponde à busca.</div>}
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '0.5rem 0' }}>Nome</th>
-              <th>Email</th>
-              <th>Papel</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((u) => (
-              <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '0.5rem 0' }}>{u.name}</td>
-                <td>{u.email}</td>
-                <td>
-                  {pending?.user.id === u.id ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
-                      Mudar para <strong>{ROLE_LABELS[pending.newRole]}</strong>?
-                      <button type="button" onClick={confirmRoleChange} disabled={updateRole.isPending}>
-                        Confirmar
-                      </button>
-                      <button type="button" className="secondary" onClick={() => setPending(null)} disabled={updateRole.isPending}>
-                        Cancelar
-                      </button>
-                    </span>
-                  ) : (
-                    <select value={u.role} onChange={(e) => requestRoleChange(u, e.target.value)} disabled={updateRole.isPending}>
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  {confirmingDeleteId === u.id ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
-                      Excluir?
-                      <button type="button" className="danger" onClick={() => handleDelete(u)} disabled={deleteUser.isPending}>
-                        Confirmar
-                      </button>
-                      <button type="button" className="secondary" onClick={() => setConfirmingDeleteId(null)}>
-                        Cancelar
-                      </button>
-                    </span>
-                  ) : (
-                    <button type="button" className="danger" onClick={() => setConfirmingDeleteId(u.id)}>
-                      Excluir
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {!!filtered.length && (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Papel</th>
+                  <th>
+                    <span className="sr-only">Ações</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <span className="cell-person">
+                        <Avatar name={u.name} />
+                        {u.name}
+                      </span>
+                    </td>
+                    <td className="muted">{u.email}</td>
+                    <td>
+                      {pending?.user.id === u.id ? (
+                        <span className="confirm-inline">
+                          Mudar para <strong>{ROLE_LABELS[pending.newRole]}</strong>?
+                          <button type="button" className="small" onClick={confirmRoleChange} disabled={updateRole.isPending}>
+                            Confirmar
+                          </button>
+                          <button type="button" className="secondary small" onClick={() => setPending(null)} disabled={updateRole.isPending}>
+                            Cancelar
+                          </button>
+                        </span>
+                      ) : (
+                        <select
+                          aria-label={`Papel de ${u.name}`}
+                          value={u.role}
+                          onChange={(e) => requestRoleChange(u, e.target.value)}
+                          disabled={updateRole.isPending}
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_LABELS[r]}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td>
+                      {confirmingDeleteId === u.id ? (
+                        <span className="confirm-inline">
+                          Excluir?
+                          <button type="button" className="danger small" onClick={() => handleDelete(u)} disabled={deleteUser.isPending}>
+                            Confirmar
+                          </button>
+                          <button type="button" className="secondary small" onClick={() => setConfirmingDeleteId(null)}>
+                            Cancelar
+                          </button>
+                        </span>
+                      ) : (
+                        <button type="button" className="danger small" onClick={() => setConfirmingDeleteId(u.id)}>
+                          Excluir
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card">
         <h3>Criar usuário</h3>
-        <p className="muted">Cadastra diretamente com um papel já definido — útil para dar acesso a orientadores/avaliadores que ainda não se registraram sozinhos.</p>
+        <p className="card-sub">Cadastra diretamente com um papel já definido. Útil para dar acesso a orientadores e avaliadores que ainda não se registraram.</p>
         <form onSubmit={handleCreate}>
-          <div className="form-group">
-            <label>Nome</label>
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} required minLength={2} />
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="new-user-name">Nome</label>
+              <input id="new-user-name" value={newName} onChange={(e) => setNewName(e.target.value)} required minLength={2} />
+            </div>
+            <div className="form-group">
+              <label htmlFor="new-user-email">Email</label>
+              <input id="new-user-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+            </div>
           </div>
-          <div className="form-group">
-            <label>Email</label>
-            <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Senha inicial</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
-          </div>
-          <div className="form-group">
-            <label>Papel</label>
-            <select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="new-user-password">Senha inicial</label>
+              <input
+                id="new-user-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="new-user-role">Papel</label>
+              <select id="new-user-role" value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           {createError && <p className="error-text">{createError}</p>}
           <button type="submit" disabled={createUser.isPending}>

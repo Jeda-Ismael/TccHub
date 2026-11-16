@@ -1,12 +1,15 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useCreateTcc, useKeywords, useSubmitTcc, useTccs, useThematicAreas, useUpdateTcc, useUploadDocument, useUsers } from '../../api/hooks';
 import { StatusBadge } from '../../components/StatusBadge';
+import { TccProgress } from '../../components/TccProgress';
+import { DocumentLink } from '../../components/DocumentLink';
+import { AlertIcon } from '../../components/icons';
 
 export function StudentHome() {
   const { data: tccs, isLoading } = useTccs();
   const tcc = tccs?.[0];
 
-  if (isLoading) return <p>Carregando...</p>;
+  if (isLoading) return <p className="loading">Carregando...</p>;
   if (!tcc) return <CreateTccForm />;
   return <TccDetail tccId={tcc.id} />;
 }
@@ -30,34 +33,42 @@ function CreateTccForm() {
   }
 
   return (
-    <div className="card">
-      <h2>Cadastrar meu TCC</h2>
-      <p className="muted">Preencha os dados iniciais. Você poderá editar e enviar o PDF depois.</p>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>Título</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required minLength={5} />
+    <div>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>Cadastrar meu TCC</h1>
+          <p>Preencha os dados iniciais. Você poderá editar e enviar o PDF depois.</p>
         </div>
-        <div className="form-group">
-          <label>Resumo</label>
-          <textarea value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required minLength={20} />
-        </div>
-        <div className="form-group">
-          <label>Orientador</label>
-          <select value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
-            <option value="">Selecione...</option>
-            {advisors?.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {error && <p className="error-text">{error}</p>}
-        <button type="submit" disabled={createTcc.isPending}>
-          {createTcc.isPending ? 'Criando...' : 'Criar TCC'}
-        </button>
-      </form>
+      </div>
+      <TccProgress status="DRAFT" />
+      <div className="card">
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="new-title">Título</label>
+            <input id="new-title" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={5} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="new-abstract">Resumo</label>
+            <textarea id="new-abstract" value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required minLength={20} />
+            <span className="field-hint">Mínimo de 20 caracteres.</span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="new-advisor">Orientador</label>
+            <select id="new-advisor" value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
+              <option value="">Selecione...</option>
+              {advisors?.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="error-text">{error}</p>}
+          <button type="submit" disabled={createTcc.isPending}>
+            {createTcc.isPending ? 'Criando...' : 'Criar TCC'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
@@ -89,7 +100,7 @@ function TccDetail({ tccId }: { tccId: string }) {
     setSelectedKeywords(tcc.keywords.map((k) => k.keyword.id));
   }, [tcc?.id, tcc?.updatedAt]);
 
-  if (!tcc) return <p>Carregando...</p>;
+  if (!tcc) return <p className="loading">Carregando...</p>;
 
   const editable = tcc.status === 'DRAFT' || tcc.status === 'CORRECTIONS_REQUESTED';
 
@@ -128,53 +139,76 @@ function TccDetail({ tccId }: { tccId: string }) {
 
   return (
     <div>
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{tcc.title}</h2>
-          <StatusBadge status={tcc.status} />
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>{tcc.title}</h1>
+          <p>Acompanhe o andamento do seu trabalho e mantenha os dados atualizados.</p>
         </div>
-        <p className="muted">Versão do documento: {tcc.documentVersion}</p>
-        {tcc.documentUrl && (
-          <p>
-            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${tcc.documentUrl}`} target="_blank" rel="noreferrer">
-              Ver PDF enviado
-            </a>
-          </p>
-        )}
-        {tcc.projectGrade != null && (
-          <p className="muted">
-            Nota do projeto: {tcc.projectGrade} · Nota da apresentação: {tcc.presentationGrade}
-          </p>
-        )}
-        {correctionComments.length > 0 && (
-          <div className="card" style={{ background: '#fdecea', borderColor: '#f3b7b1' }}>
-            <strong>Correções solicitadas pela banca:</strong>
+        <StatusBadge status={tcc.status} />
+      </div>
+
+      <TccProgress status={tcc.status} />
+
+      {correctionComments.length > 0 && (
+        <div className="notice danger" role="status">
+          <AlertIcon size={20} />
+          <div>
+            <strong>Correções solicitadas pela banca</strong>
             <ul>
               {correctionComments.map((c) => (
                 <li key={c.id}>
-                  {c.evaluator.name}: {c.comment}
+                  <b>{c.evaluator.name}:</b> {c.comment}
                 </li>
               ))}
             </ul>
           </div>
+        </div>
+      )}
+
+      <dl className="meta-list">
+        <div>
+          <dt>Orientador</dt>
+          <dd>{tcc.advisor?.name || <span className="muted">Não definido</span>}</dd>
+        </div>
+        <div>
+          <dt>Documento</dt>
+          <dd>
+            {tcc.documentUrl ? (
+              <DocumentLink url={tcc.documentUrl}>Ver PDF enviado (v{tcc.documentVersion})</DocumentLink>
+            ) : (
+              <span className="muted">Nenhum PDF enviado</span>
+            )}
+          </dd>
+        </div>
+        {tcc.projectGrade != null && (
+          <div>
+            <dt>Nota do projeto</dt>
+            <dd>{tcc.projectGrade}</dd>
+          </div>
         )}
-      </div>
+        {tcc.projectGrade != null && (
+          <div>
+            <dt>Nota da apresentação</dt>
+            <dd>{tcc.presentationGrade}</dd>
+          </div>
+        )}
+      </dl>
 
       {editable && (
         <div className="card">
-          <h3>Editar dados</h3>
+          <h3>Dados do trabalho</h3>
           <form onSubmit={handleSave}>
             <div className="form-group">
-              <label>Título</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} required minLength={5} />
+              <label htmlFor="tcc-title">Título</label>
+              <input id="tcc-title" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={5} />
             </div>
             <div className="form-group">
-              <label>Resumo</label>
-              <textarea value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required minLength={20} />
+              <label htmlFor="tcc-abstract">Resumo</label>
+              <textarea id="tcc-abstract" value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required minLength={20} />
             </div>
             <div className="form-group">
-              <label>Orientador</label>
-              <select value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
+              <label htmlFor="tcc-advisor">Orientador</label>
+              <select id="tcc-advisor" value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
                 <option value="">Selecione...</option>
                 {advisors?.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -183,56 +217,68 @@ function TccDetail({ tccId }: { tccId: string }) {
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label>Áreas temáticas</label>
-              {thematicAreas?.map((area) => (
-                <label key={area.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, fontWeight: 400 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedAreas.includes(area.id)}
-                    onChange={(e) =>
-                      setSelectedAreas((prev) => (e.target.checked ? [...prev, area.id] : prev.filter((id) => id !== area.id)))
-                    }
-                  />
-                  {area.name}
-                </label>
-              ))}
-            </div>
-            <div className="form-group">
-              <label>Palavras-chave</label>
-              {keywords?.map((kw) => (
-                <label key={kw.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, fontWeight: 400 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedKeywords.includes(kw.id)}
-                    onChange={(e) =>
-                      setSelectedKeywords((prev) => (e.target.checked ? [...prev, kw.id] : prev.filter((id) => id !== kw.id)))
-                    }
-                  />
-                  {kw.name}
-                </label>
-              ))}
-            </div>
+            <fieldset className="fieldset">
+              <legend className="legend">Áreas temáticas</legend>
+              <div className="chip-group">
+                {thematicAreas?.map((area) => (
+                  <label key={area.id} className="chip">
+                    <input
+                      type="checkbox"
+                      checked={selectedAreas.includes(area.id)}
+                      onChange={(e) =>
+                        setSelectedAreas((prev) => (e.target.checked ? [...prev, area.id] : prev.filter((id) => id !== area.id)))
+                      }
+                    />
+                    {area.name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="fieldset">
+              <legend className="legend">Palavras-chave</legend>
+              <div className="chip-group">
+                {keywords?.map((kw) => (
+                  <label key={kw.id} className="chip">
+                    <input
+                      type="checkbox"
+                      checked={selectedKeywords.includes(kw.id)}
+                      onChange={(e) =>
+                        setSelectedKeywords((prev) => (e.target.checked ? [...prev, kw.id] : prev.filter((id) => id !== kw.id)))
+                      }
+                    />
+                    {kw.name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <button type="submit" disabled={updateTcc.isPending}>
-              Salvar
+              Salvar dados
             </button>
           </form>
 
-          <hr style={{ margin: '1.25rem 0', border: 0, borderTop: '1px solid var(--border)' }} />
+          <hr className="divider" />
 
-          <h3>Arquivo da monografia (PDF)</h3>
+          <h3>Monografia em PDF</h3>
+          <p className="card-sub">Envie o arquivo e depois submeta o TCC para o orientador revisar.</p>
           <div className="form-group">
-            <input type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <input type="file" accept="application/pdf" aria-label="Arquivo PDF da monografia" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           </div>
           <div className="btn-row">
-            <button type="button" onClick={handleUpload} disabled={!file || uploadDoc.isPending}>
+            <button type="button" className="secondary" onClick={handleUpload} disabled={!file || uploadDoc.isPending}>
               Enviar PDF
             </button>
             <button type="button" onClick={handleSubmitTcc} disabled={!tcc.documentUrl || submitTcc.isPending}>
               Submeter TCC
             </button>
           </div>
-          {message && <p className="muted" style={{ marginTop: '0.75rem' }}>{message}</p>}
+          {message && <p className="feedback" role="status">{message}</p>}
+        </div>
+      )}
+
+      {!editable && (
+        <div className="card">
+          <h3>Resumo</h3>
+          <p className="abstract">{tcc.abstract}</p>
         </div>
       )}
     </div>

@@ -2,7 +2,10 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAssignEvaluators, useTccs, useUpdateTcc, useUsers } from '../../api/hooks';
 import { StatusBadge } from '../../components/StatusBadge';
-import { VerdictBadge } from '../../components/VerdictBadge';
+import { TccProgress } from '../../components/TccProgress';
+import { DocumentLink } from '../../components/DocumentLink';
+import { EvaluatorList } from '../../components/EvaluatorList';
+import { BackLink } from '../../components/BackLink';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccStatus } from '../../api/types';
 
@@ -26,7 +29,7 @@ export function CoordinationTccDetail() {
     setSelectedEvaluators(tcc.evaluators.map((e) => e.evaluatorId));
   }, [tcc?.id, tcc?.updatedAt]);
 
-  if (!tcc) return <p>Carregando...</p>;
+  if (!tcc) return <p className="loading">Carregando...</p>;
 
   const isTerminal = TERMINAL_STATUSES.includes(tcc.status);
 
@@ -50,90 +53,118 @@ export function CoordinationTccDetail() {
 
   return (
     <div>
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{tcc.title}</h2>
-          <StatusBadge status={tcc.status} />
+      <BackLink to="/coordination">Todos os TCCs</BackLink>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>{tcc.title}</h1>
         </div>
-        <p className="muted">
-          Aluno: {tcc.student.name} · Orientador: {tcc.advisor?.name || '—'}
-        </p>
-        <p>{tcc.abstract}</p>
-        {tcc.documentUrl && (
-          <p>
-            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${tcc.documentUrl}`} target="_blank" rel="noreferrer">
-              Ver PDF (v{tcc.documentVersion})
-            </a>
-          </p>
-        )}
-        {tcc.projectGrade != null && (
-          <p className="muted">
-            Nota do projeto: {tcc.projectGrade} · Nota da apresentação: {tcc.presentationGrade}
-          </p>
-        )}
+        <StatusBadge status={tcc.status} />
       </div>
 
-      <div className="card">
-        <h3>Publicação</h3>
-        <form onSubmit={handlePublishableToggle}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 400 }}>
-            <input type="checkbox" checked={publishable} onChange={(e) => setPublishable(e.target.checked)} />
-            Trabalho passível de publicação
-          </label>
-          <div style={{ marginTop: '0.75rem' }}>
-            <button type="submit" disabled={updateTcc.isPending}>
-              Salvar
-            </button>
+      <TccProgress status={tcc.status} />
+
+      <div className="detail-grid">
+        <div>
+          <div className="card">
+            <dl className="meta-list">
+              <div>
+                <dt>Aluno</dt>
+                <dd>{tcc.student.name}</dd>
+              </div>
+              <div>
+                <dt>Orientador</dt>
+                <dd>{tcc.advisor?.name || '—'}</dd>
+              </div>
+              <div>
+                <dt>Documento</dt>
+                <dd>
+                  {tcc.documentUrl ? (
+                    <DocumentLink url={tcc.documentUrl}>Ver PDF (v{tcc.documentVersion})</DocumentLink>
+                  ) : (
+                    <span className="muted">Nenhum PDF enviado</span>
+                  )}
+                </dd>
+              </div>
+              {tcc.projectGrade != null && (
+                <div>
+                  <dt>Notas</dt>
+                  <dd>
+                    Projeto {tcc.projectGrade} <span className="muted">·</span> Apresentação {tcc.presentationGrade}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            <h3>Resumo</h3>
+            <p className="abstract">{tcc.abstract}</p>
           </div>
-        </form>
-      </div>
 
-      <div className="card">
-        <h3>Banca avaliadora</h3>
-        {isTerminal ? (
-          <p className="muted">Este TCC já foi concluído — a banca não pode mais ser alterada.</p>
-        ) : (
-          <>
-            <p className="muted">Selecione os avaliadores que farão parte da banca deste TCC.</p>
-            <form onSubmit={handleAssignEvaluators}>
-              {evaluators?.map((ev) => (
-                <label key={ev.id} style={{ display: 'block', fontWeight: 400, marginBottom: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedEvaluators.includes(ev.id)}
-                    onChange={(e) =>
-                      setSelectedEvaluators((prev) => (e.target.checked ? [...prev, ev.id] : prev.filter((eid) => eid !== ev.id)))
-                    }
-                  />{' '}
-                  {ev.name} ({ev.email})
-                </label>
-              ))}
-              {!evaluators?.length && <p className="muted">Nenhum usuário com papel de Avaliador cadastrado ainda.</p>}
-              <button type="submit" disabled={assignEvaluators.isPending} style={{ marginTop: '0.75rem' }}>
-                Salvar banca
-              </button>
+          <div className="card">
+            <h3>Banca avaliadora</h3>
+            {isTerminal ? (
+              <p className="muted">Este TCC já foi concluído, então a banca não pode mais ser alterada.</p>
+            ) : (
+              <>
+                <p className="card-sub">Selecione os avaliadores que farão parte da banca deste TCC.</p>
+                <form onSubmit={handleAssignEvaluators}>
+                  <div className="option-list">
+                    {evaluators?.map((ev) => (
+                      <label key={ev.id} className="option-row">
+                        <input
+                          type="checkbox"
+                          checked={selectedEvaluators.includes(ev.id)}
+                          onChange={(e) =>
+                            setSelectedEvaluators((prev) => (e.target.checked ? [...prev, ev.id] : prev.filter((eid) => eid !== ev.id)))
+                          }
+                        />
+                        <span>
+                          {ev.name}
+                          <span className="person-email">{ev.email}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {!evaluators?.length && <p className="muted">Nenhum usuário com papel de Avaliador cadastrado ainda.</p>}
+                  <button type="submit" disabled={assignEvaluators.isPending}>
+                    Salvar banca
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+
+          {message && (
+            <p className="feedback" role="status">
+              {message}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <div className="card">
+            <h3>Publicação</h3>
+            <form onSubmit={handlePublishableToggle}>
+              <label className="check-row">
+                <input type="checkbox" checked={publishable} onChange={(e) => setPublishable(e.target.checked)} />
+                Trabalho passível de publicação
+              </label>
+              <div className="form-actions">
+                <button type="submit" className="secondary small" disabled={updateTcc.isPending}>
+                  Salvar
+                </button>
+              </div>
             </form>
-          </>
-        )}
-
-        {tcc.evaluators.length > 0 && (
-          <div style={{ marginTop: '1rem' }}>
-            <strong>Pareceres da banca:</strong>
-            <ul>
-              {tcc.evaluators.map((e) => (
-                <li key={e.id}>
-                  {e.evaluator.name}: <VerdictBadge verdict={e.verdict} />
-                  {e.comment ? ` — ${e.comment}` : ''}
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
+
+          {tcc.evaluators.length > 0 && (
+            <div className="card">
+              <h3>Pareceres da banca</h3>
+              <EvaluatorList evaluators={tcc.evaluators} />
+            </div>
+          )}
+
+          <StatusHistoryTimeline entries={tcc.statusHistory} />
+        </div>
       </div>
-
-      {message && <p className="muted">{message}</p>}
-
-      <StatusHistoryTimeline entries={tcc.statusHistory} />
     </div>
   );
 }

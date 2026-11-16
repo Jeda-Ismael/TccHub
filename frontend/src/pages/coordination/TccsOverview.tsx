@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTccs } from '../../api/hooks';
 import { StatusBadge } from '../../components/StatusBadge';
 import { STATUS_LABELS, TccStatus } from '../../api/types';
+import { ChevronRightIcon, SearchIcon } from '../../components/icons';
 
 export function TccsOverview() {
   const { data: tccs, isLoading } = useTccs();
@@ -23,42 +24,65 @@ export function TccsOverview() {
     });
   }, [tccs, search, statusFilter]);
 
-  if (isLoading) return <p>Carregando...</p>;
+  if (isLoading) return <p className="loading">Carregando...</p>;
 
   return (
-    <div className="card">
-      <h2>Todos os TCCs</h2>
-      <div className="btn-row" style={{ marginBottom: '1rem' }}>
-        <input
-          placeholder="Buscar por título, aluno ou orientador..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TccStatus | '')} style={{ width: 'auto' }}>
-          <option value="">Todos os status</option>
-          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+    <div>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>Todos os TCCs</h1>
+          <p>Abra um TCC para montar a banca avaliadora ou marcar o trabalho para publicação.</p>
+        </div>
       </div>
-
-      {!tccs?.length && <p className="muted">Nenhum TCC cadastrado ainda.</p>}
-      {!!tccs?.length && !filtered.length && <p className="muted">Nenhum TCC corresponde à busca.</p>}
-
-      {filtered.map((tcc) => (
-        <Link key={tcc.id} to={`/coordination/tcc/${tcc.id}`} className="tcc-list-item">
-          <div>
-            <h3>{tcc.title}</h3>
-            <p>
-              {tcc.student.name} · Orientador: {tcc.advisor?.name || '—'}
-            </p>
+      <div className="card">
+        <div className="toolbar">
+          <div className="search">
+            <SearchIcon />
+            <input
+              type="search"
+              aria-label="Buscar TCC"
+              placeholder="Buscar por título, aluno ou orientador..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <StatusBadge status={tcc.status} />
-        </Link>
-      ))}
+          <select aria-label="Filtrar por status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TccStatus | '')}>
+            <option value="">Todos os status</option>
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {!tccs?.length && (
+          <div className="empty">
+            <strong>Nenhum TCC cadastrado ainda</strong>
+            Os trabalhos aparecem aqui assim que os alunos fizerem o cadastro.
+          </div>
+        )}
+        {!!tccs?.length && !filtered.length && <div className="empty">Nenhum TCC corresponde à busca.</div>}
+
+        <div className="list">
+          {filtered.map((tcc) => (
+            <Link key={tcc.id} to={`/coordination/tcc/${tcc.id}`} className="tcc-list-item">
+              <div className="tcc-list-item-main">
+                <h3>{tcc.title}</h3>
+                <p>
+                  {tcc.student.name} <span aria-hidden="true">·</span> Orientador: {tcc.advisor?.name || '—'}
+                </p>
+              </div>
+              <div className="tcc-list-item-side">
+                <StatusBadge status={tcc.status} />
+                <span className="chevron">
+                  <ChevronRightIcon />
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

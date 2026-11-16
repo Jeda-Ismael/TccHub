@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import { GraduationCapIcon } from '../../components/icons/GraduationCapIcon';
 
 export function Register() {
   const [name, setName] = useState('');
@@ -29,28 +30,43 @@ export function Register() {
 
   return (
     <div className="auth-page">
+      <div className="auth-brand">
+        <span className="sidebar-brand-mark">
+          <GraduationCapIcon size={20} />
+        </span>
+        hubtcc
+      </div>
       <div className="card auth-card">
-        <h2>Criar conta</h2>
-        <p className="muted">Todo novo cadastro começa com o papel de Aluno.</p>
+        <h1>Criar conta</h1>
+        <p className="auth-sub">Todo novo cadastro começa com o papel de Aluno.</p>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Nome</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
+            <label htmlFor="reg-name">Nome</label>
+            <input id="reg-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="form-group">
-            <label>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label htmlFor="reg-email">Email</label>
+            <input id="reg-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="form-group">
-            <label>Senha</label>
-            <input type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <label htmlFor="reg-password">Senha</label>
+            <input
+              id="reg-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <span className="field-hint">Mínimo de 6 caracteres.</span>
           </div>
           {error && <p className="error-text">{error}</p>}
-          <button type="submit" disabled={loading} style={{ width: '100%' }}>
+          <button type="submit" className="block" disabled={loading}>
             {loading ? 'Criando...' : 'Criar conta'}
           </button>
         </form>
-        <p className="muted" style={{ marginTop: '1rem' }}>
+        <p className="auth-alt">
           Já tem conta? <Link to="/login">Entrar</Link>
         </p>
       </div>

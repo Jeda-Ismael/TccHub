@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useEvaluate, useTccs } from '../../api/hooks';
 import { StatusBadge } from '../../components/StatusBadge';
-import { VerdictBadge } from '../../components/VerdictBadge';
+import { TccProgress } from '../../components/TccProgress';
+import { DocumentLink } from '../../components/DocumentLink';
+import { EvaluatorList } from '../../components/EvaluatorList';
+import { BackLink } from '../../components/BackLink';
+import { InfoIcon } from '../../components/icons';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { useAuth } from '../../auth/AuthContext';
 import { Tcc, TccEvaluator } from '../../api/types';
@@ -42,7 +46,7 @@ export function EvaluatorTccDetail() {
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  if (!tcc) return <p>Carregando...</p>;
+  if (!tcc) return <p className="loading">Carregando...</p>;
 
   const myMembership = tcc.evaluators.find((e) => e.evaluatorId === user?.id);
   const canEvaluate = tcc.status === 'SENT_TO_EVALUATION' && myMembership?.verdict === 'PENDING';
@@ -64,71 +68,104 @@ export function EvaluatorTccDetail() {
 
   return (
     <div>
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{tcc.title}</h2>
-          <StatusBadge status={tcc.status} />
+      <BackLink to="/evaluator">TCCs para avaliar</BackLink>
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>{tcc.title}</h1>
         </div>
-        <p className="muted">
-          Aluno: {tcc.student.name} · Orientador: {tcc.advisor?.name || '—'}
-        </p>
-        {(tcc.thematicAreas.length > 0 || tcc.keywords.length > 0) && (
-          <p className="muted">
-            {tcc.thematicAreas.map((t) => t.thematicArea.name).join(', ')}
-            {tcc.thematicAreas.length > 0 && tcc.keywords.length > 0 ? ' · ' : ''}
-            {tcc.keywords.map((k) => k.keyword.name).join(', ')}
-          </p>
-        )}
-        <p>{tcc.abstract}</p>
-        {tcc.documentUrl && (
-          <p>
-            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${tcc.documentUrl}`} target="_blank" rel="noreferrer">
-              Baixar PDF (v{tcc.documentVersion})
-            </a>
-          </p>
-        )}
-        <div>
-          <strong>Parecer da banca:</strong>
-          {myMembership?.verdict === 'PENDING' && (
-            <p className="muted" style={{ margin: '0.25rem 0' }}>
-              Avaliação cega: os pareceres dos demais avaliadores ficam ocultos até você registrar o seu.
-            </p>
-          )}
-          <ul>
-            {tcc.evaluators.map((e) => (
-              <li key={e.id}>
-                {e.evaluator.name}: <VerdictBadge verdict={e.verdict} />
-                {e.comment ? ` — ${e.comment}` : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <StatusBadge status={tcc.status} />
       </div>
 
-      {canEvaluate ? (
-        <div className="card">
-          <h3>Seu parecer</h3>
-          <div className="form-group">
-            <label>Comentário</label>
-            <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Obrigatório ao solicitar correção" />
+      <TccProgress status={tcc.status} />
+
+      <div className="detail-grid">
+        <div>
+          <div className="card">
+            <dl className="meta-list">
+              <div>
+                <dt>Aluno</dt>
+                <dd>{tcc.student.name}</dd>
+              </div>
+              <div>
+                <dt>Orientador</dt>
+                <dd>{tcc.advisor?.name || '—'}</dd>
+              </div>
+              <div>
+                <dt>Documento</dt>
+                <dd>
+                  {tcc.documentUrl ? (
+                    <DocumentLink url={tcc.documentUrl}>Baixar PDF (v{tcc.documentVersion})</DocumentLink>
+                  ) : (
+                    <span className="muted">Nenhum PDF enviado</span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+            {(tcc.thematicAreas.length > 0 || tcc.keywords.length > 0) && (
+              <div className="tag-list">
+                {tcc.thematicAreas.map((t) => (
+                  <span key={t.thematicArea.id} className="tag">
+                    {t.thematicArea.name}
+                  </span>
+                ))}
+                {tcc.keywords.map((k) => (
+                  <span key={k.keyword.id} className="tag">
+                    {k.keyword.name}
+                  </span>
+                ))}
+              </div>
+            )}
+            <h3>Resumo</h3>
+            <p className="abstract">{tcc.abstract}</p>
           </div>
-          {formError && <p className="error-text">{formError}</p>}
-          <div className="btn-row">
-            <button type="button" onClick={() => handleVerdict('APPROVED')} disabled={evaluate.isPending}>
-              Aprovar
-            </button>
-            <button type="button" className="danger" onClick={() => handleVerdict('CORRECTIONS_REQUESTED')} disabled={evaluate.isPending}>
-              Solicitar correção
-            </button>
-          </div>
+
+          {canEvaluate ? (
+            <div className="card">
+              <h3>Seu parecer</h3>
+              <div className="form-group">
+                <label htmlFor="verdict-comment">Comentário</label>
+                <textarea
+                  id="verdict-comment"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Obrigatório ao solicitar correção"
+                />
+              </div>
+              {formError && <p className="error-text">{formError}</p>}
+              <div className="btn-row">
+                <button type="button" onClick={() => handleVerdict('APPROVED')} disabled={evaluate.isPending}>
+                  Aprovar
+                </button>
+                <button type="button" className="danger" onClick={() => handleVerdict('CORRECTIONS_REQUESTED')} disabled={evaluate.isPending}>
+                  Solicitar correção
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="notice info">
+              <InfoIcon size={20} />
+              <div>{nextStepMessage(tcc, myMembership)}</div>
+            </div>
+          )}
+
+          {message && (
+            <p className="feedback" role="status">
+              {message}
+            </p>
+          )}
         </div>
-      ) : (
-        <p className="muted">{nextStepMessage(tcc, myMembership)}</p>
-      )}
 
-      {message && <p className="muted">{message}</p>}
-
-      <StatusHistoryTimeline entries={tcc.statusHistory} />
+        <div>
+          <div className="card">
+            <h3>Parecer da banca</h3>
+            {myMembership?.verdict === 'PENDING' && (
+              <p className="card-sub">Avaliação cega: os pareceres dos demais avaliadores ficam ocultos até você registrar o seu.</p>
+            )}
+            <EvaluatorList evaluators={tcc.evaluators} />
+          </div>
+          <StatusHistoryTimeline entries={tcc.statusHistory} />
+        </div>
+      </div>
     </div>
   );
 }

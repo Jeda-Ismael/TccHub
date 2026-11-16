@@ -14,8 +14,16 @@ import { Keyword, ThematicArea } from '../../api/types';
 export function Catalogs() {
   return (
     <div>
-      <ThematicAreasCard />
-      <KeywordsCard />
+      <div className="page-head">
+        <div className="page-head-text">
+          <h1>Áreas e palavras-chave</h1>
+          <p>Os alunos escolhem nessas listas ao cadastrar o TCC. Itens em uso não podem ser excluídos.</p>
+        </div>
+      </div>
+      <div className="two-col">
+        <ThematicAreasCard />
+        <KeywordsCard />
+      </div>
     </div>
   );
 }
@@ -63,7 +71,7 @@ function ThematicAreasCard() {
       ))}
       {!areas?.length && <p className="muted">Nenhuma área temática cadastrada.</p>}
       {error && <p className="error-text">{error}</p>}
-      <form onSubmit={handleSubmit} className="btn-row" style={{ marginTop: '0.75rem' }}>
+      <form onSubmit={handleSubmit} className="add-row">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova área temática" />
         <button type="submit" disabled={createArea.isPending}>
           Adicionar
@@ -116,7 +124,7 @@ function KeywordsCard() {
       ))}
       {!keywords?.length && <p className="muted">Nenhuma palavra-chave cadastrada.</p>}
       {error && <p className="error-text">{error}</p>}
-      <form onSubmit={handleSubmit} className="btn-row" style={{ marginTop: '0.75rem' }}>
+      <form onSubmit={handleSubmit} className="add-row">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova palavra-chave" />
         <button type="submit" disabled={createKeyword.isPending}>
           Adicionar
@@ -162,13 +170,11 @@ function CatalogRow({
 
   if (confirmingDelete) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
-        <span style={{ flex: 1, fontSize: '0.9rem' }}>
-          Excluir "{name}"?
-        </span>
+      <div className="row">
+        <span className="row-main confirm-inline">Excluir "{name}"?</span>
         <button
           type="button"
-          className="danger"
+          className="danger solid small"
           onClick={() => {
             onDelete();
             setConfirmingDelete(false);
@@ -176,7 +182,7 @@ function CatalogRow({
         >
           Confirmar
         </button>
-        <button type="button" className="secondary" onClick={() => setConfirmingDelete(false)}>
+        <button type="button" className="secondary small" onClick={() => setConfirmingDelete(false)}>
           Cancelar
         </button>
       </div>
@@ -184,23 +190,22 @@ function CatalogRow({
   }
 
   return (
-    <div style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div className="row">
         {editing ? (
-          <input value={value} onChange={(e) => setValue(e.target.value)} style={{ flex: 1 }} autoFocus />
+          <input className="row-main" aria-label="Novo nome" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
         ) : (
-          <span style={{ flex: 1 }}>
-            {name} {usageCount > 0 && <span className="muted">· usado em {usageCount} TCC(s)</span>}
+          <span className="row-main">
+            {name} {usageCount > 0 && <span className="muted">usado em {usageCount} TCC(s)</span>}
           </span>
         )}
         {editing ? (
           <>
-            <button type="button" onClick={handleSave} disabled={saving}>
+            <button type="button" className="small" onClick={handleSave} disabled={saving}>
               Salvar
             </button>
             <button
               type="button"
-              className="secondary"
+              className="secondary small"
               onClick={() => {
                 setValue(name);
                 setEditError(null);
@@ -213,12 +218,12 @@ function CatalogRow({
           </>
         ) : (
           <>
-            <button type="button" className="secondary" onClick={() => setEditing(true)}>
+            <button type="button" className="secondary small" onClick={() => setEditing(true)}>
               Editar
             </button>
             <button
               type="button"
-              className="danger"
+              className="danger small"
               onClick={() => setConfirmingDelete(true)}
               disabled={usageCount > 0}
               title={usageCount > 0 ? 'Não é possível excluir: em uso por TCC(s)' : undefined}
@@ -227,8 +232,7 @@ function CatalogRow({
             </button>
           </>
         )}
-      </div>
-      {editError && <p className="error-text" style={{ marginTop: '0.35rem' }}>{editError}</p>}
+      {editError && <p className="error-text row-error">{editError}</p>}
     </div>
   );
 }

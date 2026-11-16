@@ -1,23 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 
+// A navegação entre as seções da coordenação (TCCs, Usuários, Áreas, Prazos)
+// fica na barra lateral do Layout.
 export function CoordinationLayout() {
-  return (
-    <div>
-      <nav className="nav-tabs">
-        <NavLink to="/coordination" end className={({ isActive }) => (isActive ? 'active' : '')}>
-          TCCs
-        </NavLink>
-        <NavLink to="/coordination/users" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Usuários
-        </NavLink>
-        <NavLink to="/coordination/catalogs" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Áreas e Palavras-chave
-        </NavLink>
-        <NavLink to="/coordination/periods" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Prazos
-        </NavLink>
-      </nav>
-      <Outlet />
-    </div>
-  );
+  return <Outlet />;
 }
