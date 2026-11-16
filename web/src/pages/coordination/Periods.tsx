@@ -85,8 +85,8 @@ export function Periods() {
               </p>
             </div>
             {confirmingDeleteId === p.id ? (
-              <div className="btn-row" style={{ alignItems: 'center' }}>
-                <span className="muted" style={{ fontSize: '0.85rem' }}>
+              <div className="btn-row">
+                <span className="muted">
                   Confirma exclusão?
                 </span>
                 <button type="button" className="danger" onClick={() => handleDelete(p)}>

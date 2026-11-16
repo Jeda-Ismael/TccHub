@@ -1,5 +1,7 @@
 import { Tcc } from '../api/types';
 import { StatusBadge } from './StatusBadge';
+import { TccProgress } from './TccProgress';
+import { FileDownIcon } from './icons';
 import { formatDateTime } from '../utils/dates';
 
 export function formatSize(bytes: number) {
@@ -11,6 +13,8 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
   const tags = [...tcc.thematicAreas, ...tcc.keywords];
 
   return (
+    <>
+    <TccProgress status={tcc.status} />
     <div className="card">
       <div className="tcc-header">
         <h2>{tcc.title}</h2>
@@ -22,7 +26,7 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
       </p>
       <p className="tcc-abstract">{tcc.abstract}</p>
       {tags.length > 0 && (
-        <div className="role-chips" style={{ marginBottom: '0.75rem' }}>
+        <div className="role-chips tcc-tags">
           {tags.map((tag) => (
             <span key={tag.id} className="role-chip">
               {tag.name}
@@ -31,8 +35,9 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
         </div>
       )}
       {tcc.document ? (
-        <div>
+        <div className="tcc-doc">
           <a href={tcc.document.downloadUrl} target="_blank" rel="noreferrer">
+            <FileDownIcon />
             Abrir PDF (versão {tcc.document.version})
           </a>
           <span className="muted">
@@ -41,7 +46,7 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
             {formatDateTime(tcc.document.uploadedAt)}
           </span>
           {tcc.documents.length > 1 && (
-            <details style={{ marginTop: '0.5rem' }}>
+            <details>
               <summary className="muted">Versões anteriores</summary>
               <ul>
                 {tcc.documents.slice(1).map((doc) => (
@@ -60,5 +65,6 @@ export function TccSummary({ tcc, showStudent = true }: { tcc: Tcc; showStudent?
         <p className="muted">Nenhum PDF enviado ainda.</p>
       )}
     </div>
+    </>
   );
 }

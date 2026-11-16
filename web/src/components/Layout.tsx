@@ -3,6 +3,8 @@ import { useAuth } from '../auth/AuthContext';
 import { HOME_BY_ROLE } from '../auth/homeByRole';
 import { ROLE_LABELS, Role } from '../api/types';
 import { NotificationBell } from './NotificationBell';
+import { GraduationCapIcon } from './icons/GraduationCapIcon';
+import { Avatar } from './Avatar';
 
 export function Layout() {
   const { user, activeRole, setActiveRole, logout } = useAuth();
@@ -21,16 +23,23 @@ export function Layout() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <nav className="topbar-nav">
+        <nav className="topbar-nav" aria-label="Navegação principal">
           <Link to="/" className="topbar-brand">
+            <span className="brand-mark" aria-hidden="true">
+              <GraduationCapIcon size={19} />
+            </span>
             hubtcc
           </Link>
+          {user && activeRole && <NavLink to={HOME_BY_ROLE[activeRole]}>Meu painel</NavLink>}
           {user && <NavLink to="/repository">Repositório</NavLink>}
         </nav>
         {user && activeRole && (
           <div className="topbar-user">
             <NotificationBell />
-            <span className="topbar-name">{user.name}</span>
+            <span className="topbar-name">
+              <Avatar name={user.name} />
+              {user.name}
+            </span>
             {user.roles.length > 1 ? (
               <label className="role-switcher">
                 Ver como
@@ -43,7 +52,7 @@ export function Layout() {
                 </select>
               </label>
             ) : (
-              <span>· {ROLE_LABELS[activeRole]}</span>
+              <span className="topbar-role">{ROLE_LABELS[activeRole]}</span>
             )}
             <button className="secondary" onClick={handleLogout}>
               Sair
