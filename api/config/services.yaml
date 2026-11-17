@@ -7,6 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # Fuso da instituição: usado para interpretar datas sem hora (prazos)
+    app.timezone: 'America/Sao_Paulo'
 
 services:
     # default configuration for services in *this* file
@@ -25,3 +27,13 @@ services:
     App\EventListener\ApiExceptionListener:
         arguments:
             $debug: '%kernel.debug%'
+
+when@test:
+    services:
+        # Conta as consultas SQL para os testes de desempenho (N+1)
+        App\Tests\Support\QueryCounter:
+            public: true
+        app.test.query_counting_middleware:
+            class: Doctrine\DBAL\Logging\Middleware
+            arguments: ['@App\Tests\Support\QueryCounter']
+            tags: [doctrine.middleware]

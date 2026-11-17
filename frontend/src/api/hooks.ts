@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { Keyword, Role, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
+import { Keyword, Role, Settings, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
 
 // --- TCC ---
-export function useTccs() {
+/** TCCs visíveis com um papel: os próprios, os orientados, os das bancas ou todos. */
+export function useTccs(as: Role) {
   return useQuery({
-    queryKey: ['tccs'],
-    queryFn: async () => (await api.get<Tcc[]>('/tcc')).data,
+    queryKey: ['tccs', as],
+    queryFn: async () => (await api.get<Tcc[]>('/tcc', { params: { as } })).data,
   });
 }
 
@@ -18,95 +19,71 @@ export function useTcc(id?: string) {
   });
 }
 
-export function useCreateTcc() {
+/** Atualiza o TCC no cache com a resposta da API e recarrega as listas. */
+function useTccMutation<TInput>(fn: (input: TInput) => Promise<Tcc>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { title: string; abstract: string; advisorId?: string; thematicAreaIds?: string[]; keywordIds?: string[] }) =>
-      (await api.post<Tcc>('/tcc', data)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tccs'] }),
+    mutationFn: fn,
+    onSuccess: (tcc) => {
+      qc.setQueryData(['tcc', tcc.id], tcc);
+      qc.invalidateQueries({ queryKey: ['tccs'] });
+    },
   });
+}
+
+export interface TccInput {
+  title?: string;
+  abstract?: string;
+  /** "" remove o orientador. */
+  advisorId?: string;
+  thematicAreaIds?: string[];
+  keywordIds?: string[];
+}
+
+export function useCreateTcc() {
+  return useTccMutation(async (data: TccInput) => (await api.post<Tcc>('/tcc', data)).data);
 }
 
 export function useUpdateTcc(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: Partial<{ title: string; abstract: string; advisorId: string; thematicAreaIds: string[]; keywordIds: string[]; publishable: boolean }>) =>
-      (await api.patch<Tcc>(`/tcc/${id}`, data)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
-  });
+  return useTccMutation(async (data: TccInput) => (await api.patch<Tcc>(`/tcc/${id}`, data)).data);
 }
 
 export function useUploadDocument(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (file: File) => {
-      const form = new FormData();
-      form.append('file', file);
-      return (await api.post<Tcc>(`/tcc/${id}/document`, form, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
+  return useTccMutation(async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await api.post<Tcc>(`/tcc/${id}/document`, form)).data;
   });
 }
 
 export function useSubmitTcc(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async () => (await api.post<Tcc>(`/tcc/${id}/submit`)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
-  });
+  return useTccMutation(async () => (await api.post<Tcc>(`/tcc/${id}/submit`)).data);
 }
 
-export function useAssignEvaluators(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (evaluatorIds: string[]) => (await api.put<Tcc>(`/tcc/${id}/evaluators`, { evaluatorIds })).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
-  });
+export function useAssignBoard(id: string) {
+  return useTccMutation(async (evaluatorIds: string[]) => (await api.put<Tcc>(`/tcc/${id}/evaluators`, { evaluatorIds })).data);
 }
 
 export function useAdvisorReview(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: { approve: boolean; comment?: string }) => (await api.post<Tcc>(`/tcc/${id}/advisor-review`, data)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
-  });
+  return useTccMutation(async (data: { approve: boolean; comment?: string }) => (await api.post<Tcc>(`/tcc/${id}/advisor-review`, data)).data);
 }
 
 export function useEvaluate(id: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: { verdict: 'APPROVED' | 'CORRECTIONS_REQUESTED'; comment?: string }) =>
-      (await api.post<Tcc>(`/tcc/${id}/evaluate`, data)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
-  });
+  return useTccMutation(
+    async (data: { verdict: 'APPROVED' | 'CORRECTIONS_REQUESTED'; comment?: string }) => (await api.post<Tcc>(`/tcc/${id}/evaluate`, data)).data,
+  );
 }
 
-export function useSetGrades(id: string) {
+// --- Configurações ---
+export function useSettings() {
+  return useQuery({ queryKey: ['settings'], queryFn: async () => (await api.get<Settings>('/settings')).data });
+}
+
+export function useUpdateSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { projectGrade: number; presentationGrade: number }) => (await api.post<Tcc>(`/tcc/${id}/grades`, data)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tcc', id] });
-      qc.invalidateQueries({ queryKey: ['tccs'] });
-    },
+    mutationFn: async (data: Settings) => (await api.put<Settings>('/settings', data)).data,
+    onSuccess: (settings) => qc.setQueryData(['settings'], settings),
   });
 }
 

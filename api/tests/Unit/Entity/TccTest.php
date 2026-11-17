@@ -264,4 +264,25 @@ final class TccTest extends TestCase
         self::assertSame($tcc, $entry->getTcc());
         self::assertSame('8.75', $tcc->getFinalGrade());
     }
+
+    public function testResubmissionNeedsADocumentNewerThanTheCorrectionRequest(): void
+    {
+        $tcc = $this->tcc();
+        self::assertTrue($tcc->hasDocumentSinceCorrectionsRequested(), 'Antes de qualquer pedido de correção não há exigência');
+
+        $tcc->addDocument('a', 'v1.pdf', 10, str_repeat('a', 64), $this->student);
+        $tcc->markCorrectionsRequested();
+        self::assertFalse($tcc->hasDocumentSinceCorrectionsRequested());
+
+        $tcc->addDocument('b', 'v2.pdf', 10, str_repeat('b', 64), $this->student);
+        self::assertTrue($tcc->hasDocumentSinceCorrectionsRequested());
+    }
+
+    public function testAssertCanJoinBoardDoesNotChangeTheBoard(): void
+    {
+        $tcc = $this->tcc();
+        $tcc->assertCanJoinBoard($this->evaluator);
+
+        self::assertCount(0, $tcc->getBoardMembers());
+    }
 }

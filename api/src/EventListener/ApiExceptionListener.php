@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\EventListener;
 
 use App\Exception\DomainRuleViolation;
+use App\Exception\TransitionNotAllowed;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,6 +35,19 @@ final class ApiExceptionListener
 
         $exception = $event->getThrowable();
 
+        // Duas ações simultâneas sobre o mesmo registro (ex.: dois envios de PDF)
+        if ($exception instanceof UniqueConstraintViolationException) {
+            $event->setResponse($this->json(Response::HTTP_CONFLICT, 'Outra alteração foi feita ao mesmo tempo. Atualize a página e tente de novo.'));
+
+            return;
+        }
+
+        if ($exception instanceof TransitionNotAllowed) {
+            $event->setResponse($this->json(Response::HTTP_CONFLICT, $exception->getMessage()));
+
+            return;
+        }
+
         if ($exception instanceof DomainRuleViolation) {
             $event->setResponse($this->json(Response::HTTP_UNPROCESSABLE_ENTITY, $exception->getMessage()));
 
@@ -55,7 +70,10 @@ final class ApiExceptionListener
             }
 
             $message = match ($status) {
-                Response::HTTP_FORBIDDEN => 'Você não tem permissão para executar esta ação.',
+                // Mensagem própria quando o código explicou o motivo; senão, a genérica
+                Response::HTTP_FORBIDDEN => \in_array($exception->getMessage(), ['', 'Access Denied.'], true)
+                    ? 'Você não tem permissão para executar esta ação.'
+                    : $exception->getMessage(),
                 // A mensagem padrão do Symfony expõe nomes de classe e rota
                 Response::HTTP_NOT_FOUND => 'Recurso não encontrado.',
                 default => '' !== $exception->getMessage() ? $exception->getMessage() : (Response::$statusTexts[$status] ?? 'Erro'),

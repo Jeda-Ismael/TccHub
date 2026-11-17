@@ -16,6 +16,9 @@ export function CoordinationLayout() {
         <NavLink to="/coordination/periods" className={({ isActive }) => (isActive ? 'active' : '')}>
           Prazos
         </NavLink>
+        <NavLink to="/coordination/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Configurações
+        </NavLink>
       </nav>
       <Outlet />
     </div>

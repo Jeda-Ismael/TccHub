@@ -51,8 +51,12 @@ class BoardMember
         $this->updatedAt = new \DateTimeImmutable();
     }
 
+    /** Uma vez por rodada: depois de ver os pareceres dos colegas, o voto não muda mais. */
     public function giveVerdict(EvaluationVerdict $verdict, ?string $comment): void
     {
+        if ($this->hasVoted()) {
+            throw new DomainRuleViolation('Você já registrou seu parecer nesta rodada e ele não pode ser alterado.');
+        }
         if (EvaluationVerdict::Pending === $verdict) {
             throw new DomainRuleViolation('Escolha aprovar ou solicitar correções.');
         }

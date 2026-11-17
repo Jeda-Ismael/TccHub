@@ -12,6 +12,8 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+      # PDFs dos TCCs (fora da pasta pública; sobrevivem à recriação do container)
+      - uploads_data:/app/var/storage
     ports:
       - name: http
         target: 80
@@ -43,6 +45,7 @@ services:
       - database_data:/var/lib/postgresql/data
 
 volumes:
+  uploads_data:
   caddy_data:
   caddy_config:
   database_data:

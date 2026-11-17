@@ -1,125 +1,69 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAdvisorReview, useSetGrades, useTccs } from '../../api/hooks';
-import { StatusBadge } from '../../components/StatusBadge';
-import { VerdictBadge } from '../../components/VerdictBadge';
-
-const REVIEWABLE = ['SUBMITTED', 'RESUBMITTED', 'ADVISOR_FINAL_REVIEW'];
+import { apiErrorMessage } from '../../api/client';
+import { useAdvisorReview, useTcc } from '../../api/hooks';
+import { Tcc } from '../../api/types';
+import { BoardList } from '../../components/BoardList';
+import { QueryStatus } from '../../components/QueryStatus';
+import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
+import { TccSummary } from '../../components/TccSummary';
 
 export function AdvisorTccDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data: tccs } = useTccs();
-  const tcc = tccs?.find((t) => t.id === id);
-  const advisorReview = useAdvisorReview(id!);
-  const setGrades = useSetGrades(id!);
-
-  const [comment, setComment] = useState('');
-  const [projectGrade, setProjectGrade] = useState('');
-  const [presentationGrade, setPresentationGrade] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
-
-  if (!tcc) return <p>Carregando...</p>;
-
-  async function handleReview(approve: boolean) {
-    setMessage(null);
-    try {
-      await advisorReview.mutateAsync({ approve, comment: comment || undefined });
-      setMessage(approve ? 'Aprovado.' : 'Reprovado.');
-      setComment('');
-    } catch (err: any) {
-      setMessage(err.response?.data?.message || 'Não foi possível registrar a revisão');
-    }
-  }
-
-  async function handleGrades(e: FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    try {
-      await setGrades.mutateAsync({ projectGrade: Number(projectGrade), presentationGrade: Number(presentationGrade) });
-      setMessage('Notas lançadas.');
-    } catch (err: any) {
-      setMessage(err.response?.data?.message || 'Não foi possível lançar as notas');
-    }
-  }
-
-  const canReview = REVIEWABLE.includes(tcc.status);
-  const isFinal = tcc.status === 'ADVISOR_FINAL_REVIEW';
+  const { data: tcc, isLoading, error } = useTcc(id);
+  if (!tcc) return <QueryStatus isLoading={isLoading} error={error} />;
 
   return (
     <div>
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{tcc.title}</h2>
-          <StatusBadge status={tcc.status} />
-        </div>
-        <p className="muted">Aluno: {tcc.student.name} ({tcc.student.email})</p>
-        <p>{tcc.abstract}</p>
-        {tcc.documentUrl && (
-          <p>
-            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${tcc.documentUrl}`} target="_blank" rel="noreferrer">
-              Ver PDF (v{tcc.documentVersion})
-            </a>
-          </p>
-        )}
-        {tcc.evaluators.length > 0 && (
-          <div>
-            <strong>Banca:</strong>
-            <ul>
-              {tcc.evaluators.map((e) => (
-                <li key={e.id}>
-                  {e.evaluator.name} — <VerdictBadge verdict={e.verdict} />
-                  {e.comment ? `: ${e.comment}` : ''}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      <TccSummary tcc={tcc} />
+      {tcc.permissions.advisorReview && <AdvisorReview tcc={tcc} />}
+      <BoardList board={tcc.board} />
+      <StatusHistoryTimeline entries={tcc.statusHistory} />
+    </div>
+  );
+}
 
-      {canReview && (
-        <div className="card">
-          <h3>{isFinal ? 'Aprovação final' : 'Revisão da monografia'}</h3>
-          <div className="form-group">
-            <label>Comentário (opcional)</label>
-            <textarea value={comment} onChange={(e) => setComment(e.target.value)} />
-          </div>
-          <div className="btn-row">
-            <button type="button" onClick={() => handleReview(true)} disabled={advisorReview.isPending}>
-              Aprovar
-            </button>
-            <button type="button" className="danger" onClick={() => handleReview(false)} disabled={advisorReview.isPending}>
-              {isFinal ? 'Solicitar novas correções' : 'Reprovar'}
-            </button>
-          </div>
-        </div>
+function AdvisorReview({ tcc }: { tcc: Tcc }) {
+  const review = useAdvisorReview(tcc.id);
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const isFinal = tcc.status === 'ADVISOR_FINAL_REVIEW';
+
+  async function handle(approve: boolean) {
+    setError(null);
+    try {
+      await review.mutateAsync({ approve, comment: comment.trim() || undefined });
+      setComment('');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível registrar a revisão.'));
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>{isFinal ? 'Revisão final' : 'Revisão do orientador'}</h3>
+      <p className="muted">
+        {isFinal
+          ? 'A banca aprovou. Aprove para seguir para a defesa, ou devolva ao aluno com o que ainda precisa ser ajustado.'
+          : 'Aprove para enviar o TCC à banca (a coordenação precisa ter montado a banca), ou reprove explicando o motivo.'}
+      </p>
+      <div className="form-group">
+        <label htmlFor="review-comment">Comentário {isFinal ? '(obrigatório para devolver)' : '(obrigatório para reprovar)'}</label>
+        <textarea id="review-comment" value={comment} onChange={(e) => setComment(e.target.value)} />
+      </div>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
       )}
-
-      <div className="card">
-        <h3>Notas</h3>
-        <form onSubmit={handleGrades}>
-          <div className="form-group">
-            <label>Nota do projeto (0-10)</label>
-            <input type="number" min={0} max={10} step={0.1} value={projectGrade} onChange={(e) => setProjectGrade(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Nota da apresentação (0-10)</label>
-            <input
-              type="number"
-              min={0}
-              max={10}
-              step={0.1}
-              value={presentationGrade}
-              onChange={(e) => setPresentationGrade(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" disabled={setGrades.isPending}>
-            Lançar notas
-          </button>
-        </form>
+      <div className="btn-row">
+        <button type="button" onClick={() => handle(true)} disabled={review.isPending}>
+          {isFinal ? 'Aprovar para a defesa' : 'Aprovar e enviar à banca'}
+        </button>
+        <button type="button" className="danger" onClick={() => handle(false)} disabled={review.isPending}>
+          {isFinal ? 'Devolver para correções' : 'Reprovar'}
+        </button>
       </div>
-
-      {message && <p className="muted">{message}</p>}
     </div>
   );
 }

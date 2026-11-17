@@ -1,50 +1,144 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useCreateTcc, useKeywords, useSubmitTcc, useTccs, useThematicAreas, useUpdateTcc, useUploadDocument, useUsers } from '../../api/hooks';
-import { StatusBadge } from '../../components/StatusBadge';
+import { apiErrorMessage } from '../../api/client';
+import { TccInput, useCreateTcc, useKeywords, useSubmitTcc, useTcc, useTccs, useThematicAreas, useUpdateTcc, useUploadDocument, useUsers } from '../../api/hooks';
+import { Tcc, TccStatus } from '../../api/types';
+import { BoardList } from '../../components/BoardList';
+import { QueryStatus } from '../../components/QueryStatus';
+import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
+import { TccSummary } from '../../components/TccSummary';
+
+/** O que o aluno precisa saber/fazer em cada status. */
+const NEXT_STEP: Record<TccStatus, string> = {
+  DRAFT: 'Preencha os dados, escolha o orientador, envie o PDF e clique em "Submeter TCC".',
+  SUBMITTED: 'Seu TCC está com o orientador para a primeira revisão.',
+  RESUBMITTED: 'Sua nova versão está com o orientador.',
+  SENT_TO_EVALUATION: 'A banca está avaliando seu TCC. Os pareceres aparecem quando todos terminarem.',
+  CORRECTIONS_REQUESTED: 'Faça as correções pedidas, envie a nova versão do PDF e clique em "Reenviar TCC".',
+  ADVISOR_FINAL_REVIEW: 'A banca aprovou! Falta a revisão final do orientador.',
+  AWAITING_DEFENSE: 'Aprovado para a defesa. Aguarde o agendamento.',
+  AWAITING_DECISION: 'A coordenação está decidindo os próximos passos da sua defesa.',
+  APPROVED: 'Parabéns, seu TCC foi aprovado!',
+  REJECTED: 'Seu TCC foi reprovado. Veja os comentários no histórico.',
+};
 
 export function StudentHome() {
-  const { data: tccs, isLoading } = useTccs();
-  const tcc = tccs?.[0];
+  const { data: tccs, isLoading, error } = useTccs('STUDENT');
+  const [creatingNew, setCreatingNew] = useState(false);
 
-  if (isLoading) return <p>Carregando...</p>;
-  if (!tcc) return <CreateTccForm />;
-  return <TccDetail tccId={tcc.id} />;
+  if (isLoading || error) return <QueryStatus isLoading={isLoading} error={error} />;
+
+  const latest = tccs?.[0];
+  if (!latest || creatingNew) return <TccForm onCreated={() => setCreatingNew(false)} />;
+
+  return <StudentTcc tccId={latest.id} onStartNew={latest.status === 'REJECTED' ? () => setCreatingNew(true) : undefined} />;
 }
 
-function CreateTccForm() {
+function StudentTcc({ tccId, onStartNew }: { tccId: string; onStartNew?: () => void }) {
+  const { data: tcc, isLoading, error } = useTcc(tccId);
+  if (!tcc) return <QueryStatus isLoading={isLoading} error={error} />;
+
+  const corrections = tcc.board.filter((m) => m.verdict === 'CORRECTIONS_REQUESTED' && m.comment);
+  const lastComment = [...tcc.statusHistory].reverse().find((h) => h.comment && h.changedBy && h.toStatus === tcc.status);
+  const roundFinished = tcc.board.some((m) => m.verdict !== 'PENDING');
+
+  return (
+    <div>
+      <p className={`notice${tcc.status === 'CORRECTIONS_REQUESTED' || tcc.status === 'REJECTED' ? ' warning' : ''}`}>{NEXT_STEP[tcc.status]}</p>
+
+      <TccSummary tcc={tcc} showStudent={false} />
+
+      {tcc.status === 'CORRECTIONS_REQUESTED' && (corrections.length > 0 || lastComment) && (
+        <div className="card">
+          <h3>Correções pedidas</h3>
+          <ul>
+            {corrections.map((c) => (
+              <li key={c.id}>
+                <strong>{c.evaluator.name}:</strong> {c.comment}
+              </li>
+            ))}
+            {lastComment && corrections.length === 0 && (
+              <li>
+                <strong>{lastComment.changedBy?.name}:</strong> {lastComment.comment}
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {tcc.permissions.edit && <TccForm tcc={tcc} />}
+      {(tcc.permissions.upload || tcc.permissions.submit) && <UploadAndSubmit tcc={tcc} />}
+      {roundFinished && <BoardList board={tcc.board} title="Pareceres da banca" />}
+      <StatusHistoryTimeline entries={tcc.statusHistory} />
+
+      {onStartNew && (
+        <button type="button" onClick={onStartNew}>
+          Cadastrar um novo TCC
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Cadastro (sem `tcc`) ou edição dos dados do TCC. */
+function TccForm({ tcc, onCreated }: { tcc?: Tcc; onCreated?: () => void }) {
+  const { data: advisors } = useUsers('ADVISOR');
+  const { data: areas } = useThematicAreas();
+  const { data: keywords } = useKeywords();
+  const createTcc = useCreateTcc();
+  const updateTcc = useUpdateTcc(tcc?.id ?? '');
+
   const [title, setTitle] = useState('');
   const [abstractText, setAbstractText] = useState('');
   const [advisorId, setAdvisorId] = useState('');
-  const { data: advisors } = useUsers('ADVISOR');
-  const createTcc = useCreateTcc();
-  const [error, setError] = useState<string | null>(null);
+  const [areaIds, setAreaIds] = useState<string[]>([]);
+  const [keywordIds, setKeywordIds] = useState<string[]>([]);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!tcc) return;
+    setTitle(tcc.title);
+    setAbstractText(tcc.abstract);
+    setAdvisorId(tcc.advisor?.id ?? '');
+    setAreaIds(tcc.thematicAreas.map((a) => a.id));
+    setKeywordIds(tcc.keywords.map((k) => k.id));
+  }, [tcc?.id, tcc?.updatedAt]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setMessage(null);
+    const data: TccInput = { title, abstract: abstractText, advisorId, thematicAreaIds: areaIds, keywordIds };
     try {
-      await createTcc.mutateAsync({ title, abstract: abstractText, advisorId: advisorId || undefined });
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Não foi possível criar o TCC');
+      if (tcc) {
+        await updateTcc.mutateAsync(data);
+        setMessage({ text: 'Dados salvos.', error: false });
+      } else {
+        await createTcc.mutateAsync(data);
+        onCreated?.();
+      }
+    } catch (err) {
+      setMessage({ text: apiErrorMessage(err, 'Não foi possível salvar.'), error: true });
     }
   }
 
+  const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  const pending = createTcc.isPending || updateTcc.isPending;
+
   return (
     <div className="card">
-      <h2>Cadastrar meu TCC</h2>
-      <p className="muted">Preencha os dados iniciais. Você poderá editar e enviar o PDF depois.</p>
+      <h3>{tcc ? 'Dados do TCC' : 'Cadastrar meu TCC'}</h3>
+      {!tcc && <p className="muted">Preencha os dados iniciais. Depois você envia o PDF e submete para o orientador.</p>}
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Título</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required minLength={5} />
+          <label htmlFor="tcc-title">Título</label>
+          <input id="tcc-title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={255} />
         </div>
         <div className="form-group">
-          <label>Resumo</label>
-          <textarea value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required minLength={20} />
+          <label htmlFor="tcc-abstract">Resumo</label>
+          <textarea id="tcc-abstract" value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label>Orientador</label>
-          <select value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
+          <label htmlFor="tcc-advisor">Orientador</label>
+          <select id="tcc-advisor" value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
             <option value="">Selecione...</option>
             {advisors?.map((a) => (
               <option key={a.id} value={a.id}>
@@ -53,187 +147,93 @@ function CreateTccForm() {
             ))}
           </select>
         </div>
-        {error && <p className="error-text">{error}</p>}
-        <button type="submit" disabled={createTcc.isPending}>
-          {createTcc.isPending ? 'Criando...' : 'Criar TCC'}
+        {!!areas?.length && (
+          <div className="form-group">
+            <label>Áreas temáticas</label>
+            <div className="checkbox-list">
+              {areas.map((area) => (
+                <label key={area.id}>
+                  <input type="checkbox" checked={areaIds.includes(area.id)} onChange={() => setAreaIds(toggle(areaIds, area.id))} />
+                  {area.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {!!keywords?.length && (
+          <div className="form-group">
+            <label>Palavras-chave</label>
+            <div className="checkbox-list">
+              {keywords.map((kw) => (
+                <label key={kw.id}>
+                  <input type="checkbox" checked={keywordIds.includes(kw.id)} onChange={() => setKeywordIds(toggle(keywordIds, kw.id))} />
+                  {kw.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {message && (
+          <p className={message.error ? 'error-text' : 'muted'} role={message.error ? 'alert' : undefined}>
+            {message.text}
+          </p>
+        )}
+        <button type="submit" disabled={pending}>
+          {tcc ? 'Salvar dados' : pending ? 'Criando...' : 'Criar TCC'}
         </button>
       </form>
     </div>
   );
 }
 
-function TccDetail({ tccId }: { tccId: string }) {
-  const { data: tccs } = useTccs();
-  const tcc = tccs?.find((t) => t.id === tccId);
-  const { data: advisors } = useUsers('ADVISOR');
-  const { data: thematicAreas } = useThematicAreas();
-  const { data: keywords } = useKeywords();
-  const updateTcc = useUpdateTcc(tccId);
-  const uploadDoc = useUploadDocument(tccId);
-  const submitTcc = useSubmitTcc(tccId);
-
-  const [title, setTitle] = useState('');
-  const [abstractText, setAbstractText] = useState('');
-  const [advisorId, setAdvisorId] = useState('');
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+function UploadAndSubmit({ tcc }: { tcc: Tcc }) {
+  const uploadDoc = useUploadDocument(tcc.id);
+  const submitTcc = useSubmitTcc(tcc.id);
   const [file, setFile] = useState<File | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!tcc) return;
-    setTitle(tcc.title);
-    setAbstractText(tcc.abstract);
-    setAdvisorId(tcc.advisor?.id || '');
-    setSelectedAreas(tcc.thematicAreas.map((t) => t.thematicArea.id));
-    setSelectedKeywords(tcc.keywords.map((k) => k.keyword.id));
-  }, [tcc?.id, tcc?.updatedAt]);
-
-  if (!tcc) return <p>Carregando...</p>;
-
-  const editable = tcc.status === 'DRAFT' || tcc.status === 'CORRECTIONS_REQUESTED';
-
-  async function handleSave(e: FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    await updateTcc.mutateAsync({
-      title,
-      abstract: abstractText,
-      advisorId: advisorId || undefined,
-      thematicAreaIds: selectedAreas,
-      keywordIds: selectedKeywords,
-    });
-    setMessage('Dados salvos.');
-  }
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const isResubmission = tcc.status === 'CORRECTIONS_REQUESTED';
 
   async function handleUpload() {
     if (!file) return;
     setMessage(null);
-    await uploadDoc.mutateAsync(file);
-    setFile(null);
-    setMessage('Arquivo enviado.');
-  }
-
-  async function handleSubmitTcc() {
-    setMessage(null);
     try {
-      await submitTcc.mutateAsync();
-      setMessage('TCC submetido.');
-    } catch (err: any) {
-      setMessage(err.response?.data?.message || 'Não foi possível submeter');
+      const updated = await uploadDoc.mutateAsync(file);
+      setFile(null);
+      setMessage({ text: `PDF enviado (versão ${updated.document?.version}).`, error: false });
+    } catch (err) {
+      setMessage({ text: apiErrorMessage(err, 'Não foi possível enviar o PDF.'), error: true });
     }
   }
 
-  const correctionComments = tcc.evaluators.filter((e) => e.verdict === 'CORRECTIONS_REQUESTED' && e.comment);
+  async function handleSubmit() {
+    setMessage(null);
+    try {
+      await submitTcc.mutateAsync();
+    } catch (err) {
+      setMessage({ text: apiErrorMessage(err, 'Não foi possível submeter.'), error: true });
+    }
+  }
 
   return (
-    <div>
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{tcc.title}</h2>
-          <StatusBadge status={tcc.status} />
-        </div>
-        <p className="muted">Versão do documento: {tcc.documentVersion}</p>
-        {tcc.documentUrl && (
-          <p>
-            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${tcc.documentUrl}`} target="_blank" rel="noreferrer">
-              Ver PDF enviado
-            </a>
-          </p>
-        )}
-        {tcc.projectGrade != null && (
-          <p className="muted">
-            Nota do projeto: {tcc.projectGrade} · Nota da apresentação: {tcc.presentationGrade}
-          </p>
-        )}
-        {correctionComments.length > 0 && (
-          <div className="card" style={{ background: '#fdecea', borderColor: '#f3b7b1' }}>
-            <strong>Correções solicitadas pela banca:</strong>
-            <ul>
-              {correctionComments.map((c) => (
-                <li key={c.id}>
-                  {c.evaluator.name}: {c.comment}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+    <div className="card">
+      <h3>PDF e envio</h3>
+      {isResubmission && <p className="muted">Envie a versão corrigida antes de reenviar. As versões anteriores ficam guardadas.</p>}
+      <div className="form-group">
+        <label htmlFor="tcc-file">Arquivo PDF (até 20 MB)</label>
+        <input id="tcc-file" type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </div>
-
-      {editable && (
-        <div className="card">
-          <h3>Editar dados</h3>
-          <form onSubmit={handleSave}>
-            <div className="form-group">
-              <label>Título</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} required minLength={5} />
-            </div>
-            <div className="form-group">
-              <label>Resumo</label>
-              <textarea value={abstractText} onChange={(e) => setAbstractText(e.target.value)} required minLength={20} />
-            </div>
-            <div className="form-group">
-              <label>Orientador</label>
-              <select value={advisorId} onChange={(e) => setAdvisorId(e.target.value)}>
-                <option value="">Selecione...</option>
-                {advisors?.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Áreas temáticas</label>
-              {thematicAreas?.map((area) => (
-                <label key={area.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, fontWeight: 400 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedAreas.includes(area.id)}
-                    onChange={(e) =>
-                      setSelectedAreas((prev) => (e.target.checked ? [...prev, area.id] : prev.filter((id) => id !== area.id)))
-                    }
-                  />
-                  {area.name}
-                </label>
-              ))}
-            </div>
-            <div className="form-group">
-              <label>Palavras-chave</label>
-              {keywords?.map((kw) => (
-                <label key={kw.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, fontWeight: 400 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedKeywords.includes(kw.id)}
-                    onChange={(e) =>
-                      setSelectedKeywords((prev) => (e.target.checked ? [...prev, kw.id] : prev.filter((id) => id !== kw.id)))
-                    }
-                  />
-                  {kw.name}
-                </label>
-              ))}
-            </div>
-            <button type="submit" disabled={updateTcc.isPending}>
-              Salvar
-            </button>
-          </form>
-
-          <hr style={{ margin: '1.25rem 0', border: 0, borderTop: '1px solid var(--border)' }} />
-
-          <h3>Arquivo da monografia (PDF)</h3>
-          <div className="form-group">
-            <input type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          </div>
-          <div className="btn-row">
-            <button type="button" onClick={handleUpload} disabled={!file || uploadDoc.isPending}>
-              Enviar PDF
-            </button>
-            <button type="button" onClick={handleSubmitTcc} disabled={!tcc.documentUrl || submitTcc.isPending}>
-              Submeter TCC
-            </button>
-          </div>
-          {message && <p className="muted" style={{ marginTop: '0.75rem' }}>{message}</p>}
-        </div>
+      <div className="btn-row">
+        <button type="button" className="secondary" onClick={handleUpload} disabled={!file || uploadDoc.isPending}>
+          {uploadDoc.isPending ? 'Enviando...' : 'Enviar PDF'}
+        </button>
+        <button type="button" onClick={handleSubmit} disabled={!tcc.permissions.submit || submitTcc.isPending}>
+          {isResubmission ? 'Reenviar TCC' : 'Submeter TCC'}
+        </button>
+      </div>
+      {message && (
+        <p className={message.error ? 'error-text' : 'muted'} role={message.error ? 'alert' : undefined} style={{ marginTop: '0.75rem' }}>
+          {message.text}
+        </p>
       )}
     </div>
   );

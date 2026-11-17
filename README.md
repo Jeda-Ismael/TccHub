@@ -38,7 +38,9 @@ docker compose exec php bin/console doctrine:fixtures:load -n   # usuários de t
 
 Contas de teste (senha `123456`): `aluno@hubtcc.dev`, `orientador@hubtcc.dev`, `avaliador1@hubtcc.dev`, `avaliador2@hubtcc.dev`, `coordenacao@hubtcc.dev` e `professor@hubtcc.dev` (Orientador + Avaliador + Coordenação, para testar o seletor "Ver como").
 
-> Migração em andamento: login, cadastro e gestão de usuários já usam o Symfony. As telas de TCC, banca e cadastros dependem das próximas fases (3 a 5) e mostram erro até lá.
+> Migração em andamento: login, usuários, cadastros (áreas, palavras-chave, prazos, configurações) e o fluxo do TCC até a defesa já usam o Symfony. Agendamento da defesa e notas chegam na Fase 5.
+
+**Roteiro para testar o fluxo:** entre como `aluno@` e cadastre o TCC, envie um PDF e submeta → como `coordenacao@`, abra o TCC e monte a banca com Arthur e Alice → como `orientador@`, aprove e envie à banca → como `avaliador1@` e `avaliador2@`, dê os pareceres → se alguém pedir correções, o TCC volta ao aluno; se todos aprovarem, vai para a revisão final do orientador e depois para "Aguardando defesa".
 
 Comandos úteis: `make help` lista tudo; `make qa` roda estilo, PHPStan e testes; `make sh` abre um shell na API.
 
