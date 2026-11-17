@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fase 0 concluída · Versão 3 · 2026-10
+> Status: decisões fechadas · Fases 0 e 1 concluídas · Versão 4 · 2026-10
 
 ---
 
@@ -119,6 +119,7 @@ frankenphp_prod → composer --no-dev, cache warmup (pronto para o futuro)
 | `make up` / `make down` | Sobe / derruba |
 | `make sh` | Shell no container `php` |
 | `make db-reset` | Recria banco + migrations + fixtures básicas (1 usuário por papel) |
+| `make fixtures` | Recarrega só as fixtures (apaga os dados atuais) |
 | `make demo` | `db-reset` + fixtures de demonstração (TCCs em todos os status) |
 | `make migration` | Gera migration a partir das entidades |
 | `make test` / `make coverage` | PHPUnit / relatório HTML de cobertura |
@@ -242,11 +243,9 @@ erDiagram
         varchar status
         uuid student_id FK
         uuid advisor_id FK
-        uuid current_document_id FK
         numeric final_grade "nullable"
         boolean publication_authorized
         timestamptz published_at "nullable"
-        tsvector search_vector
         timestamptz created_at
         timestamptz updated_at
     }
@@ -273,7 +272,7 @@ erDiagram
         uuid id PK
         uuid tcc_id FK
         int attempt
-        timestamptz scheduled_at
+        timestamptz scheduled_at "nullable"
         varchar location "nullable"
         varchar meeting_url "nullable"
         numeric project_average "nullable"
@@ -341,8 +340,11 @@ Também existem as tabelas `refresh_tokens` (do bundle de refresh) e `messenger_
 - **Notas** em `numeric(4,2)`, com check `0 ≤ nota ≤ 10`. `UNIQUE(defense_id, board_member_id)`, ou seja, uma nota por avaliador por tentativa.
 - **Várias tentativas de defesa.** Se a coordenação permitir nova defesa, cria-se uma nova linha em `defenses` com `attempt + 1`. As notas antigas ficam guardadas no histórico.
 - **`tccs.final_grade`** guarda a nota da última defesa aprovada, para facilitar listagem e repositório.
-- **`search_vector`** é uma coluna gerada a partir de título, resumo, palavras-chave e áreas (pesos A/B/C), com índice GIN e atualização por trigger.
-- **Índices:** `tccs(student_id)`, `tccs(advisor_id)`, `tccs(status)`, `board_members(evaluator_id)`, `notifications(user_id, read_at)`, `users USING GIN (roles)`.
+- **Documento atual** é a versão mais alta em `tcc_documents` (não há `current_document_id` em `tccs`, para evitar chave estrangeira circular).
+- **Defesa** nasce sem `scheduled_at` quando o TCC entra em `AWAITING_DEFENSE` e recebe data no agendamento.
+- **`search_vector`** (busca do repositório) entra na Fase 7: coluna `tsvector` gerada a partir de título, resumo, palavras-chave e áreas (pesos A/B/C), com índice GIN.
+- **Índices:** `tccs(student_id)`, `tccs(advisor_id)`, `tccs(status)`, `board_members(evaluator_id)`, `notifications(user_id, read_at)`, `submission_periods(type, start_date, end_date)`. Sem índice GIN em `users.roles`: a tabela é pequena e o Doctrine não mapeia esse tipo de índice.
+- **CHECKs no banco** (além das regras nas entidades): notas entre 0 e 10, `end_date > start_date` nos períodos, `settings` com linha única (`id = 1`) e tamanho de banca coerente. A migration já insere as configurações padrão.
 - **`UNIQUE(tcc_id, evaluator_id)`** em `board_members` e **`UNIQUE(tcc_id, version)`** em `tcc_documents`.
 - Removidos em relação ao schema atual: `google_id`, `documentUrl`/`documentVersion` (agora em `tcc_documents`), `projectGrade`/`presentationGrade` do TCC (agora em `defense_grades`), `publishable` (substituído por `publication_authorized` + `published_at`) e o status não usado `ADVISOR_REVIEW`.
 
@@ -569,7 +571,7 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 | Fase | Entrega | Pronto quando |
 |------|---------|---------------|
 | 0 · Infra ✅ | Compose, Dockerfile, Makefile, Symfony + `GET /api/health`, PHPStan/CS/PHPUnit, CI | `make up` sobe tudo; `make qa` verde |
-| 1 · Dados | Entidades, enums, migrations, fixtures base (Foundry + dama/doctrine-test-bundle) | `make db-reset` cria banco com 1 usuário por papel + 1 professor com 3 papéis |
+| 1 · Dados ✅ | Entidades, enums, migrations, fixtures base (Foundry + dama/doctrine-test-bundle) | `make db-reset` cria banco com 1 usuário por papel + 1 professor com 3 papéis |
 | 2 · Auth e papéis | Login, registro, refresh, `/me`, gestão de papéis, voters base | Login e troca de papel funcionam no frontend |
 | 3 · Cadastros | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
 | 4 · TCC até a banca | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `ADVISOR_FINAL_REVIEW` pelo frontend |

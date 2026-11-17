@@ -1,0 +1,4 @@
+# Cada teste roda dentro de uma transação desfeita no final: o banco de
+# testes volta ao estado das migrations sem precisar recriá-lo.
+dama_doctrine_test:
+    enable_static_connection: true
