@@ -2,11 +2,19 @@
 set -e
 
 if [ "$1" = 'frankenphp' ] || [ "$1" = 'php' ] || [ "$1" = 'bin/console' ]; then
-	if [ -z "$(ls -A 'vendor/' 2>/dev/null)" ]; then
+	# Instala as dependências na primeira subida e sempre que o composer.lock
+	# mudar (ex.: depois de um git pull que trouxe bibliotecas novas)
+	if [ -z "$(ls -A 'vendor/' 2>/dev/null)" ] || [ composer.lock -nt vendor/composer/installed.json ]; then
 		composer install --prefer-dist --no-progress --no-interaction
 	fi
 
 	php bin/console -V
+
+	# Monta o cache agora, e não no primeiro request (que ficaria lento)
+	php bin/console cache:warmup
+
+	# Chaves do JWT (ficam fora do git); geradas só na primeira subida
+	php bin/console lexik:jwt:generate-keypair --skip-if-exists
 
 	if grep -q ^DATABASE_URL= .env; then
 		echo 'Aguardando o banco de dados...'

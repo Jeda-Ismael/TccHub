@@ -1,15 +1,9 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-
-const HOME_BY_ROLE: Record<string, string> = {
-  STUDENT: '/student',
-  ADVISOR: '/advisor',
-  EVALUATOR: '/evaluator',
-  COORDINATION: '/coordination',
-};
+import { HOME_BY_ROLE } from '../auth/homeByRole';
 
 export function Dashboard() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={HOME_BY_ROLE[user.role]} replace />;
+  const { activeRole } = useAuth();
+  if (!activeRole) return <Navigate to="/login" replace />;
+  return <Navigate to={HOME_BY_ROLE[activeRole]} replace />;
 }

@@ -22,13 +22,17 @@ RUN <<-EOF
 		unzip
 	install-php-extensions \
 		@composer \
-		apcu \
 		intl \
 		opcache \
 		pdo_pgsql \
 		zip
 	rm -rf /var/lib/apt/lists/*
 EOF
+
+# Extensões do PECL: o pecl.php.net às vezes fica fora do ar e derrubava o build.
+# Tenta 3 vezes e, se não conseguir, segue sem elas (nenhuma é obrigatória).
+COPY --link --chmod=755 frankenphp/install-pecl-extensions.sh /usr/local/bin/install-pecl-extensions
+RUN install-pecl-extensions apcu
 
 # https://getcomposer.org/doc/03-cli.md#composer-allow-superuser
 ENV COMPOSER_ALLOW_SUPERUSER=1
@@ -55,7 +59,7 @@ ENV FRANKENPHP_WORKER_CONFIG=watch
 # Xdebug para depuração, PCOV para cobertura de testes (mais rápido que o Xdebug)
 RUN <<-EOF
 	mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
-	install-php-extensions xdebug pcov
+	install-pecl-extensions xdebug pcov
 	git config --system --add safe.directory /app
 EOF
 

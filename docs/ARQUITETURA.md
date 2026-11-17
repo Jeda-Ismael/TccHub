@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fases 0 e 1 concluídas · Versão 4 · 2026-10
+> Status: decisões fechadas · Fases 0, 1 e 2 concluídas · Versão 5 · 2026-10
 
 ---
 
@@ -572,7 +572,7 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 |------|---------|---------------|
 | 0 · Infra ✅ | Compose, Dockerfile, Makefile, Symfony + `GET /api/health`, PHPStan/CS/PHPUnit, CI | `make up` sobe tudo; `make qa` verde |
 | 1 · Dados ✅ | Entidades, enums, migrations, fixtures base (Foundry + dama/doctrine-test-bundle) | `make db-reset` cria banco com 1 usuário por papel + 1 professor com 3 papéis |
-| 2 · Auth e papéis | Login, registro, refresh, `/me`, gestão de papéis, voters base | Login e troca de papel funcionam no frontend |
+| 2 · Auth e papéis ✅ | Login, registro, refresh, `/me`, gestão de usuários e papéis, novo visual do login, seletor de papel, Vitest no frontend | Login e troca de papel funcionam no frontend. Os Voters de TCC ficaram para a Fase 4, junto com as rotas que eles protegem |
 | 3 · Cadastros | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
 | 4 · TCC até a banca | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `ADVISOR_FINAL_REVIEW` pelo frontend |
 | 5 · Defesa | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação |
@@ -583,6 +583,14 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 Os testes são escritos **em cada fase** e não ficam para o final. Cada fase só termina com `make qa` verde.
 
 ---
+
+## 14.1 Notas da Fase 2
+
+- **Senha mínima de 8 caracteres** no cadastro e na criação pela coordenação. Os usuários das fixtures continuam com `123456` (só desenvolvimento).
+- **Painel 3D removido** da tela de login (e as dependências `three`/`@react-three/*`), substituído pelo cartão cinza flutuante. O bundle do frontend caiu para ~300 kB.
+- **Login com Google removido** do frontend junto com a rota `/oauth-callback` (segue no backlog).
+- **Throttling:** 5 tentativas de login por minuto (por e-mail + IP) e 5 cadastros a cada 10 minutos por IP. Nos testes, cada teste usa um IP aleatório para não esbarrar nos limites.
+- **Papel ativo** guardado no `localStorage` (preferência do navegador). O token de acesso fica só em memória; a sessão volta pelo cookie de refresh.
 
 ## 15. Backlog (fora do escopo)
 
@@ -600,7 +608,6 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - Compose de produção e deploy em VPS
 - Notificações em tempo real via Mercure
 - Armazenamento em S3/MinIO
-- Revisão do painel 3D (`three.js`) do frontend
 
 ---
 

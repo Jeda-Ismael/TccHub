@@ -9,7 +9,7 @@ COMPOSER    = $(PHP_CONT) composer
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps sh composer console \
         db-create db-reset fixtures migration migrate \
-        test-db test coverage phpstan cs cs-fix qa
+        test-db test coverage phpstan cs cs-fix web-test qa
 
 help: ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -83,4 +83,8 @@ cs: ## Verifica o estilo do código
 cs-fix: ## Corrige o estilo do código
 	@$(COMPOSER) cs:fix
 
-qa: cs phpstan test ## Roda tudo o que a CI roda
+web-test: ## Roda os testes e a checagem de tipos do frontend
+	@$(DOCKER_COMP) exec web npm run typecheck
+	@$(DOCKER_COMP) exec web npm test
+
+qa: cs phpstan test web-test ## Roda tudo o que a CI roda

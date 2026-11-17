@@ -13,11 +13,31 @@ export type TccStatus =
 
 export type EvaluationVerdict = 'PENDING' | 'APPROVED' | 'CORRECTIONS_REQUESTED';
 
+export const ROLE_LABELS: Record<Role, string> = {
+  STUDENT: 'Aluno',
+  ADVISOR: 'Orientador',
+  EVALUATOR: 'Avaliador',
+  COORDINATION: 'Coordenação',
+};
+
+/** Ordem canônica dos papéis (a mesma da API). */
+export const ROLES: Role[] = ['STUDENT', 'ADVISOR', 'EVALUATOR', 'COORDINATION'];
+
 export interface UserSummary {
   id: string;
   name: string;
   email: string;
-  role: Role;
+}
+
+/** Usuário como a coordenação vê (e como /me e o login devolvem). */
+export interface User extends UserSummary {
+  roles: Role[];
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  user: User;
 }
 
 export interface ThematicArea {

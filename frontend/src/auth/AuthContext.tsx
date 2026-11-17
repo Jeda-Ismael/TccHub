@@ -1,48 +1,105 @@
-import { createContext, useContext, useMemo, useState, ReactNode } from 'react';
-import { jwtDecode } from './jwt';
-import { Role } from '../api/types';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api, refreshSession } from '../api/client';
+import { AuthResponse, Role, User } from '../api/types';
+import { session } from './session';
 
-interface AuthUser {
-  id: string;
-  email: string;
-  role: Role;
-}
+const ACTIVE_ROLE_KEY = 'hubtcc_active_role';
+
+type Status = 'loading' | 'authenticated' | 'anonymous';
 
 interface AuthContextValue {
-  user: AuthUser | null;
-  token: string | null;
-  login: (token: string) => void;
-  logout: () => void;
+  status: Status;
+  user: User | null;
+  /** Papel com que o usuário está navegando (escolhido no seletor "Ver como"). */
+  activeRole: Role | null;
+  setActiveRole: (role: Role) => void;
+  login: (email: string, password: string) => Promise<User>;
+  register: (name: string, email: string, password: string) => Promise<User>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function loadUserFromToken(token: string | null): AuthUser | null {
-  if (!token) return null;
+// Preferência só deste navegador; se o storage estiver bloqueado, segue sem ela
+function readStoredRole(): string | null {
   try {
-    const payload = jwtDecode<{ sub: string; email: string; role: Role; exp: number }>(token);
-    if (payload.exp * 1000 < Date.now()) return null;
-    return { id: payload.sub, email: payload.email, role: payload.role };
+    return localStorage.getItem(ACTIVE_ROLE_KEY);
   } catch {
     return null;
   }
 }
 
+function storeRole(role: Role) {
+  try {
+    localStorage.setItem(ACTIVE_ROLE_KEY, role);
+  } catch {
+    // ignora
+  }
+}
+
+function pickActiveRole(user: User, preferred: string | null): Role {
+  return user.roles.find((role) => role === preferred) ?? user.roles[0];
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('hubtcc_token'));
-  const user = useMemo(() => loadUserFromToken(token), [token]);
+  const [status, setStatus] = useState<Status>('loading');
+  const [user, setUser] = useState<User | null>(null);
+  const [activeRole, setActiveRoleState] = useState<Role | null>(null);
 
-  const login = (newToken: string) => {
-    localStorage.setItem('hubtcc_token', newToken);
-    setToken(newToken);
-  };
+  const startSession = useCallback((data: AuthResponse) => {
+    session.setToken(data.accessToken);
+    setUser(data.user);
+    setActiveRoleState(pickActiveRole(data.user, readStoredRole()));
+    setStatus('authenticated');
+    return data.user;
+  }, []);
 
-  const logout = () => {
-    localStorage.removeItem('hubtcc_token');
-    setToken(null);
-  };
+  const endSession = useCallback(() => {
+    session.setToken(null);
+    setUser(null);
+    setActiveRoleState(null);
+    setStatus('anonymous');
+  }, []);
 
-  return <AuthContext.Provider value={{ user, token, login, logout }}>{children}</AuthContext.Provider>;
+  // Ao abrir o app, tenta restaurar a sessão pelo cookie de refresh
+  useEffect(() => {
+    let cancelled = false;
+    refreshSession()
+      .then((data) => !cancelled && startSession(data))
+      .catch(() => !cancelled && endSession());
+    return () => {
+      cancelled = true;
+    };
+  }, [startSession, endSession]);
+
+  // Refresh recusado no meio do uso (cookie expirou ou foi revogado)
+  useEffect(() => session.onExpired(endSession), [endSession]);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      status,
+      user,
+      activeRole,
+      setActiveRole: (role) => {
+        if (!user?.roles.includes(role)) return;
+        storeRole(role);
+        setActiveRoleState(role);
+      },
+      login: async (email, password) => startSession((await api.post<AuthResponse>('/auth/login', { email, password })).data),
+      register: async (name, email, password) =>
+        startSession((await api.post<AuthResponse>('/auth/register', { name, email, password })).data),
+      logout: async () => {
+        try {
+          await api.post('/auth/logout');
+        } finally {
+          endSession();
+        }
+      },
+    }),
+    [status, user, activeRole, startSession, endSession],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

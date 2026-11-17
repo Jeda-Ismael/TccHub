@@ -2,14 +2,16 @@
 framework:
     secret: '%env(APP_SECRET)%'
 
-    # Note that the session will be started ONLY if you read or write from it.
-    session: true
+    # A API é stateless (JWT): sem sessão PHP
+    session: false
 
-    #esi: true
-    #fragments: true
+    rate_limiter:
+        # Cadastro público: no máximo 5 contas novas a cada 10 minutos por IP
+        register:
+            policy: sliding_window
+            limit: 5
+            interval: '10 minutes'
 
 when@test:
     framework:
         test: true
-        session:
-            storage_factory_id: session.storage.factory.mock_file

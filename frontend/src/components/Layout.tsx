@@ -1,15 +1,21 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-
-const ROLE_LABELS: Record<string, string> = {
-  STUDENT: 'Aluno',
-  ADVISOR: 'Orientador',
-  EVALUATOR: 'Avaliador',
-  COORDINATION: 'Coordenação',
-};
+import { HOME_BY_ROLE } from '../auth/homeByRole';
+import { ROLE_LABELS, Role } from '../api/types';
 
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user, activeRole, setActiveRole, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function switchRole(role: Role) {
+    setActiveRole(role);
+    navigate(HOME_BY_ROLE[role]);
+  }
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login', { replace: true });
+  }
 
   return (
     <div className="app-shell">
@@ -17,12 +23,24 @@ export function Layout() {
         <Link to="/" className="topbar-brand">
           hubtcc
         </Link>
-        {user && (
+        {user && activeRole && (
           <div className="topbar-user">
-            <span>
-              {user.email} · {ROLE_LABELS[user.role]}
-            </span>
-            <button className="secondary" onClick={logout}>
+            <span>{user.name}</span>
+            {user.roles.length > 1 ? (
+              <label className="role-switcher">
+                Ver como
+                <select value={activeRole} onChange={(e) => switchRole(e.target.value as Role)} aria-label="Ver como">
+                  {user.roles.map((role) => (
+                    <option key={role} value={role}>
+                      {ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <span>· {ROLE_LABELS[activeRole]}</span>
+            )}
+            <button className="secondary" onClick={handleLogout}>
               Sair
             </button>
           </div>
