@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fases 0 a 5 concluídas · Versão 7 · 2026-10
+> Status: decisões fechadas · Fases 0 a 6 concluídas (Fase 6 sem e-mail) · Versão 8 · 2026-10
 
 ---
 
@@ -79,7 +79,7 @@ flowchart LR
 | Serviço | Imagem | Porta | Função |
 |---------|--------|-------|--------|
 | `php` | build `api/Dockerfile` (FrankenPHP) | 443 / 80 | API Symfony + Caddy |
-| `worker` | mesma imagem do `php` | — | `messenger:consume async`: e-mails e notificações *(entra na Fase 6)* |
+| `worker` | mesma imagem do `php` | — | `messenger:consume async`: e-mails *(adiado: entra junto com o e-mail, ver §15)* |
 | `database` | `postgres:16-alpine` | 5432 | Banco de dados (e fila do Messenger) |
 | `web` | `node:22-alpine` | 5173 | Vite dev server do React, com hot reload |
 | `mailer` | `axllent/mailpit` | 8025 | Caixa de e-mails de teste |
@@ -478,27 +478,33 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 
 ## 9. Notificações
 
+**Hoje (Fase 6, sem e-mail):** os avisos do sininho são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Não há fila nem `worker`. Quem fez a ação não recebe aviso do que ele mesmo fez, exceto quando o aviso é uma tarefa nova para ele (`DECISION_PENDING`).
+
 ```
-Workflow entered.* / BoardService / DefenseService
-        └─dispatch→ NotifyUsers(type, tccId, recipients) ─(fila Doctrine)→ worker
-                                                    ├→ INSERT notifications  (sininho)
-                                                    └→ Mailer → Mailpit
+Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / DefenseService::schedule
+        └→ Notifier::notify(type, tcc, destinatários, título, texto) → INSERT notifications (sininho)
 ```
 
 | Tipo | Quando | Para |
 |------|--------|------|
 | `TCC_SUBMITTED` | `submit` / `resubmit` | Orientador |
-| `BOARD_ASSIGNED` | Incluído numa banca | Avaliador |
-| `EVALUATION_OPEN` | `SENT_TO_EVALUATION` | Banca |
-| `CORRECTIONS_REQUESTED` | Volta para o aluno | Aluno (com os comentários) |
+| `BOARD_ASSIGNED` | Incluído numa banca (só os novos) | Avaliador |
+| `EVALUATION_OPEN` | `SENT_TO_EVALUATION` | Banca e aluno |
+| `CORRECTIONS_REQUESTED` | Volta para o aluno | Aluno (pela banca: aponta os pareceres; pelo orientador: com o comentário dele) |
 | `FINAL_REVIEW_PENDING` | Banca aprovou | Orientador |
+| `DEFENSE_PENDING` | Aprovado para a defesa (aluno) ou nova defesa liberada (aluno e orientador) | Aluno / orientador |
 | `DEFENSE_SCHEDULED` | Defesa agendada ou reagendada | Aluno, orientador, banca |
-| `GRADES_PENDING` | Horário da defesa chegou | Banca (via comando agendado `app:defense:remind`) |
-| `DECISION_PENDING` | Média abaixo do mínimo | Coordenação |
+| `DECISION_PENDING` | Média abaixo do mínimo | Todos com papel de coordenação, inclusive quem deu a última nota (é uma tarefa nova) |
 | `TCC_APPROVED` / `TCC_REJECTED` | Estado final | Aluno, orientador |
-| `PUBLICATION_REQUESTED` | Aluno autorizou e o TCC está aprovado | Coordenação |
+| `GRADES_PENDING` | Horário da defesa chegou | *Adiado (precisa do agendador, entra com o e-mail)* |
+| `PUBLICATION_REQUESTED` | Aluno autorizou e o TCC está aprovado | Coordenação *(Fase 7)* |
 
-O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-mail é enviado de forma assíncrona e a falha de um não afeta o outro. O comando de lembrete roda no `worker` via Symfony Scheduler, a cada 15 minutos.
+**API:** `GET /api/notifications[?unread=1]` (30 mais recentes + `unreadCount`), `GET /api/notifications/unread-count`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`. Cada aviso traz `as`: o papel com que o destinatário abre o TCC (aluno, orientador, avaliador ou coordenação), usado pelo frontend para ir à tela certa.
+
+**Frontend:** `components/NotificationBell.tsx` no topo. O contador é consultado a cada 30 s; quando aumenta, as telas de TCC abertas recarregam.
+
+**Depois (e-mail, no backlog):** o `Notifier` passa também a despachar uma mensagem para a fila do Messenger (transporte Doctrine), consumida pelo serviço `worker`, que envia o e-mail com o mesmo título e texto. O lembrete `GRADES_PENDING` roda no `worker` via Symfony Scheduler.
+
 
 ---
 
@@ -576,7 +582,7 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 | 3 · Cadastros ✅ | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
 | 4 · TCC até a banca ✅ | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `AWAITING_DEFENSE` pelo frontend (testado de ponta a ponta no navegador) |
 | 5 · Defesa ✅ | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação (testado no navegador até Aprovado) |
-| 6 · Notificações | Serviço `worker`, fila, e-mails, sininho, lembrete agendado | E-mails no Mailpit; contador no frontend |
+| 6 · Notificações ✅ (sem e-mail) | Sininho: avisos gravados junto com cada ação, API e contador no frontend. E-mail, `worker` e lembrete ficaram no backlog | Avisos certos para cada papel; clique leva ao TCC (testado no navegador) |
 | 7 · Repositório | Autorização, publicação, busca full-text, download | Busca por palavra-chave retorna TCCs publicados |
 | 8 · Corte | `make demo`, remover NestJS, `frontend/` → `web/`, README | Repositório só com Symfony; cobertura ≥ 85% |
 
@@ -639,6 +645,7 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 **Outros**
 
 
+- **Notificações por e-mail** (adiadas na Fase 6): serviço `worker`, fila Doctrine do Messenger, Mailpit em dev, mesmos textos do sininho, e o lembrete `GRADES_PENDING` via Scheduler (ver §9)
 - Login com Google
 - Recuperação de senha / verificação de e-mail
 - Deploy de fato num servidor (a configuração já está pronta — ver `docs/DEPLOY.md`)

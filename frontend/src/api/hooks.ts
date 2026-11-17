@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { Keyword, Role, Settings, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
+import { Keyword, NotificationList, Role, Settings, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
 
 // --- TCC ---
 /** TCCs visíveis com um papel: os próprios, os orientados, os das bancas ou todos. */
@@ -233,4 +233,40 @@ export function useDeletePeriod() {
     mutationFn: async (id: string) => (await api.delete(`/periods/${id}`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['periods'] }),
   });
+}
+
+// --- Notificações (sininho) ---
+/** Intervalo do polling do contador. */
+export const NOTIFICATIONS_POLL_MS = 30_000;
+
+export function useUnreadCount() {
+  return useQuery({
+    queryKey: ['notifications', 'count'],
+    queryFn: async () => (await api.get<{ unreadCount: number }>('/notifications/unread-count')).data.unreadCount,
+    refetchInterval: NOTIFICATIONS_POLL_MS,
+  });
+}
+
+export function useNotifications(enabled: boolean) {
+  return useQuery({
+    queryKey: ['notifications', 'list'],
+    queryFn: async () => (await api.get<NotificationList>('/notifications')).data,
+    enabled,
+  });
+}
+
+function useNotificationMutation<TInput>(fn: (input: TInput) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useMarkNotificationRead() {
+  return useNotificationMutation((id: string) => api.post(`/notifications/${id}/read`));
+}
+
+export function useMarkAllNotificationsRead() {
+  return useNotificationMutation(() => api.post('/notifications/read-all'));
 }
