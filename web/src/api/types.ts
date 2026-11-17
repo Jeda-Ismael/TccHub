@@ -127,6 +127,8 @@ export interface Defense {
   gradedCount: number;
   boardSize: number;
   grades: DefenseGrade[];
+  /** Ata em PDF (link assinado, 5 minutos), só depois que a defesa encerra. */
+  minutesUrl?: string | null;
 }
 
 export interface PreviousDefense {
@@ -134,6 +136,7 @@ export interface PreviousDefense {
   scheduledAt: string | null;
   finalGrade: number | null;
   outcome: DefenseOutcome;
+  minutesUrl?: string | null;
 }
 
 export interface Tcc {

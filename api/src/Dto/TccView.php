@@ -81,6 +81,7 @@ final class TccView implements ResetInterface
                     'scheduledAt' => $this->date($d->getScheduledAt()),
                     'finalGrade' => self::number($d->getFinalGrade()),
                     'outcome' => $d->getOutcome()->value,
+                    'minutesUrl' => $d->isClosed() ? $this->links->forMinutes($d) : null,
                 ],
                 array_filter($tcc->getDefenses()->getValues(), static fn (Defense $d): bool => $d !== $tcc->getCurrentDefense()),
             )),
@@ -142,6 +143,7 @@ final class TccView implements ResetInterface
             'presentationAverage' => self::number($defense->getPresentationAverage()),
             'finalGrade' => self::number($defense->getFinalGrade()),
             'gradedCount' => $defense->getGrades()->count(),
+            'minutesUrl' => $closed ? $this->links->forMinutes($defense) : null,
             'boardSize' => $tcc->getBoardMembers()->count(),
             'grades' => array_map(static fn (DefenseGrade $g): array => [
                 'evaluator' => UserView::summary($g->getBoardMember()->getEvaluator()),

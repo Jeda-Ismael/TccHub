@@ -21,6 +21,7 @@ use App\Exception\DomainRuleViolation;
 use App\Http\Pagination;
 use App\Repository\TccRepository;
 use App\Security\Voter\TccVoter;
+use App\Service\DefenseMinutes;
 use App\Service\DefenseService;
 use App\Service\DocumentStorage;
 use App\Service\TccService;
@@ -179,6 +180,33 @@ final class TccController extends AbstractController
         $response->headers->set('Content-Type', 'application/pdf');
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $document->getOriginalName(), 'tcc-v'.$document->getVersion().'.pdf');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $response;
+    }
+
+    /**
+     * Ata da defesa em PDF, também por link assinado (sai no `minutesUrl` da
+     * defesa encerrada, só para quem pode ver o TCC).
+     */
+    #[Route('/{id}/defenses/{attempt}/minutes', name: 'api_tcc_defense_minutes', requirements: ['id' => Requirement::UUID, 'attempt' => '\\d+'], methods: ['GET'])]
+    public function defenseMinutes(string $id, int $attempt, Request $request, UriSigner $signer, DefenseMinutes $minutes): Response
+    {
+        try {
+            $signer->verify($request->getRequestUri());
+        } catch (\Throwable) {
+            throw new AccessDeniedHttpException('Link da ata inválido ou expirado. Abra o TCC de novo para gerar outro.');
+        }
+
+        $tcc = $this->tccs->find(Uuid::fromString($id)) ?? throw new NotFoundHttpException();
+        $defense = $tcc->getDefenses()->findFirst(static fn ($i, $d): bool => $d->getAttempt() === $attempt)
+            ?? throw new NotFoundHttpException();
+
+        $response = new Response($minutes->render($defense), Response::HTTP_OK, [
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+        $name = \sprintf('ata-defesa-%d.pdf', $attempt);
+        $response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $name));
 
         return $response;
     }

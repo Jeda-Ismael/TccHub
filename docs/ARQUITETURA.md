@@ -672,7 +672,7 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 
 **Ideias vindas de projetos de referência** (§16), em ordem sugerida:
 
-1. **Ata de defesa em PDF.** Gerada automaticamente quando a defesa fecha, com banca, notas, média, resultado e data. Fica anexada ao TCC e disponível para aluno, orientador e coordenação. *Como:* template Twig → PDF (Dompdf ou Gotenberg). Evolução: assinatura digital dos membros da banca (inspirado no gestao-tccs, IFPE).
+1. ~~**Ata de defesa em PDF.**~~ **Feito (etapa 5):** gerada na hora com Dompdf a partir de `templates/pdf/defense_minutes.html.twig` quando a defesa encerra, por link assinado (`minutesUrl` da defesa, 5 minutos) para quem vê o TCC. Falta: assinatura digital dos membros da banca (inspirado no gestao-tccs, IFPE).
 2. **Registro de reuniões de orientação.** O orientador registra data, assunto e encaminhamentos, e o aluno confirma. Gera um histórico de acompanhamento útil para comprovar a orientação. *Modelo:* `advising_meetings (tcc_id, held_at, topic, notes, next_steps, confirmed_by_student_at)` (inspirado no gtcc e no SIGA-TCC).
 3. **Etapas com cronograma.** A coordenação define marcos por período (ex.: projeto, qualificação, versão final) com prazos, e o aluno entrega o PDF em cada etapa, com o orientador dando parecer. *Modelo:* `milestones (period_id, name, due_date, order)` + `milestone_submissions`. Afeta o workflow: as etapas viram pré-requisito do `submit` final (inspirado no gtcc e no ls1intum).
 

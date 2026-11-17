@@ -4,6 +4,7 @@ import { useDecide, useGradeDefense, useScheduleDefense } from '../api/hooks';
 import { Defense, DefenseOutcome, Tcc } from '../api/types';
 import { formatDate, formatLongDateTime } from '../utils/dates';
 import { toast } from './Toaster';
+import { FileDownIcon } from './icons';
 
 const OUTCOME_LABELS: Record<DefenseOutcome, string> = {
   PENDING: 'Em andamento',
@@ -57,12 +58,31 @@ export function DefenseSection({ tcc }: { tcc: Tcc }) {
               <li key={d.attempt}>
                 Tentativa {d.attempt}: média {formatGrade(d.finalGrade)} · {OUTCOME_LABELS[d.outcome]}
                 {d.scheduledAt && <span className="muted"> · {formatDate(d.scheduledAt)}</span>}
+                {d.minutesUrl && (
+                  <>
+                    {' · '}
+                    <a href={d.minutesUrl} target="_blank" rel="noreferrer">
+                      ata
+                    </a>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         </details>
       )}
     </div>
+  );
+}
+
+function MinutesLink({ href }: { href: string }) {
+  return (
+    <p className="tcc-doc">
+      <a href={href} target="_blank" rel="noreferrer">
+        <FileDownIcon />
+        Baixar ata da defesa (PDF)
+      </a>
+    </p>
   );
 }
 
@@ -106,6 +126,7 @@ function DefenseGrades({ defense }: { defense: Defense }) {
           <strong>Média final {formatGrade(defense.finalGrade)}</strong>
         </p>
       )}
+      {closed && defense.minutesUrl && <MinutesLink href={defense.minutesUrl} />}
       {defense.grades.length > 0 && (
         <table className="grades-table">
           <thead>

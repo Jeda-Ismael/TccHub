@@ -45,6 +45,7 @@ security:
         - { path: ^/api/auth/(login|register|refresh|logout|forgot-password|reset-password)$, roles: PUBLIC_ACCESS }
         # Download do PDF por link assinado (o controller confere a assinatura)
         - { path: ^/api/tcc/[0-9a-f-]+/documents/\d+/download$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/tcc/[0-9a-f-]+/defenses/\d+/minutes$, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:

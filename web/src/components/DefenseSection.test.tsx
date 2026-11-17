@@ -150,4 +150,17 @@ describe('seção da defesa', () => {
     expect(await screen.findByText('Defesa reagendada.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reagendar' })).toBeInTheDocument();
   });
+
+  it('com a defesa encerrada, oferece a ata em PDF', () => {
+    renderSection(
+      makeTcc({
+        status: 'APPROVED',
+        defense: defense({ outcome: 'PASSED', finalGrade: 8.5, projectAverage: 8, presentationAverage: 9, minutesUrl: '/api/tcc/t1/defenses/2/minutes?_hash=x' }),
+        previousDefenses: [{ attempt: 1, scheduledAt: null, finalGrade: 5, outcome: 'FAILED', minutesUrl: '/api/tcc/t1/defenses/1/minutes?_hash=y' }],
+      }),
+    );
+
+    expect(screen.getByRole('link', { name: 'Baixar ata da defesa (PDF)' })).toHaveAttribute('href', '/api/tcc/t1/defenses/2/minutes?_hash=x');
+    expect(screen.getByRole('link', { name: 'ata' })).toHaveAttribute('href', '/api/tcc/t1/defenses/1/minutes?_hash=y');
+  });
 });
