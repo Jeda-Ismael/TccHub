@@ -32,6 +32,7 @@ services:
     environment:
       APP_ENV: prod
       APP_SECRET: ${APP_SECRET:?Defina APP_SECRET no .env.prod}
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:?Defina JWT_PASSPHRASE no .env.prod}
       APP_FRONTEND_URL: https://${SERVER_NAME}
       # SMTP do provedor (ex.: smtp://usuario:senha@smtp.brevo.com:587). Sem ele, os e-mails são descartados
       MAILER_DSN: ${MAILER_DSN:-null://null}
