@@ -69,7 +69,7 @@ CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--watch" ]
 
 
 # Build do frontend React para produção. O código vem do contexto "web"
-# (pasta frontend/), passado pelo compose.prod.yaml em additional_contexts.
+# (pasta web/), passado pelo compose.prod.yaml em additional_contexts.
 FROM node:22-alpine AS web_build
 
 WORKDIR /web

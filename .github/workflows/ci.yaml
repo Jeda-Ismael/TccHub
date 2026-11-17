@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
 
@@ -22,15 +22,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - run: npm ci
 
       - name: Tipos (TypeScript)
         run: npm run typecheck
 
-      - name: Testes (Vitest)
-        run: npm test
+      - name: Testes e cobertura mínima de 85% (Vitest)
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
@@ -70,8 +70,8 @@ jobs:
       - name: Análise estática (PHPStan)
         run: make phpstan
 
-      - name: Testes
-        run: make test
+      - name: Testes e cobertura mínima de 85%
+        run: make test-coverage
 
       - name: Logs em caso de falha
         if: failure()

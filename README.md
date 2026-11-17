@@ -1,119 +1,120 @@
 # hubtcc — Sistema de Cadastro de TCC
 
-Sistema de cadastro e acompanhamento de Trabalhos de Conclusão de Curso, inspirado no fluxo de negócio do [deposito-tcc](https://github.com/pcalvesUSP/deposito-tcc) (USP), reimplementado sem nenhuma dependência de infraestrutura institucional.
+Sistema de cadastro e acompanhamento de Trabalhos de Conclusão de Curso, do envio do PDF até a defesa e a publicação num repositório. Inspirado no fluxo de negócio do [deposito-tcc](https://github.com/pcalvesUSP/deposito-tcc) (USP), reimplementado sem dependência de infraestrutura institucional.
 
-Papéis: **Aluno**, **Orientador**, **Avaliador** (banca) e **Coordenação**. Fluxo: o aluno cadastra o TCC e envia o PDF, o orientador aprova para a banca, cada avaliador dá seu parecer (o sistema só avança de status depois que **todos** os avaliadores se manifestarem — se algum pedir correção, o aluno reenvia e o ciclo se repete), e o orientador faz a aprovação final e lança as notas.
+**Papéis:** Aluno, Orientador, Avaliador (banca) e Coordenação. Um professor pode acumular Orientador, Avaliador e Coordenação e trocar de papel no topo da tela ("Ver como").
+
+**Fluxo:**
+
+1. O aluno cadastra o TCC, envia o PDF e submete.
+2. A coordenação monta a banca.
+3. O orientador aprova o envio à banca.
+4. Cada avaliador dá o parecer às cegas. O TCC só avança quando **todos** se manifestam; se alguém pedir correções, o aluno reenvia e a rodada recomeça.
+5. O orientador faz a revisão final e agenda a defesa.
+6. Depois da defesa, cada avaliador lança as notas de projeto e de apresentação. Com média mínima (configurável, 6,0), o TCC é aprovado; abaixo dela, a coordenação decide entre uma nova defesa e a reprovação.
+7. Com o TCC aprovado, o aluno autoriza a publicação e a coordenação publica no **repositório**, com busca para qualquer usuário logado.
+
+Avisos de cada etapa chegam no **sininho** do topo da tela.
 
 ## Stack
 
-> **Em migração:** o backend está sendo reescrito em **Symfony 7.4 + PostgreSQL**, rodando todo no Docker (pasta `api/`). O plano completo está em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Enquanto a migração não termina, o backend NestJS (`backend/`) continua funcionando como antes.
+- **API** (`api/`): Symfony 7.4 + Doctrine + PostgreSQL 16, servida por FrankenPHP (Caddy) no Docker.
+  - Workflow do Symfony para o ciclo do TCC e Voters para as permissões.
+  - Login com JWT e refresh em cookie httpOnly.
+- **Web** (`web/`): React 18 + Vite + TypeScript + React Query + React Router.
+- **Qualidade:** PHPUnit, PHPStan nível 8, PHP-CS-Fixer, Vitest e Testing Library. A CI exige no mínimo 85% de cobertura na API e na web.
 
-- **Backend (novo)**: Symfony 7.4 + Doctrine + PostgreSQL 16, servido por FrankenPHP
-- **Backend (atual)**: NestJS + TypeScript + Prisma + MySQL, autenticação JWT + Google OAuth
-- **Frontend**: React (Vite) + TypeScript + React Query + React Router
+Arquitetura e decisões: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Como subir num servidor: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-## Rodando o novo backend (Docker)
+## Rodando no computador
 
-Pré-requisitos: Docker (com Compose v2.10+) e `make`.
+Pré-requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ou Docker com Compose v2.10+). O `make` é opcional; cada comando abaixo também está em versão `docker compose`, que funciona no Windows sem `make`.
 
-```bash
-make build   # constrói as imagens (só na primeira vez ou quando o Dockerfile mudar)
-make up      # sobe API, PostgreSQL, frontend e Mailpit
-```
+### Demonstração rápida (com dados de exemplo)
+
+| Com `make` | Sem `make` |
+|---|---|
+| `make demo` | `docker compose up -d --wait`<br>`docker compose exec php bin/console doctrine:migrations:migrate -n`<br>`docker compose exec php bin/console doctrine:fixtures:load -n --group=demo` |
+
+Isso sobe tudo e carrega:
+- usuários de teste;
+- TCCs de outros alunos em vários pontos do fluxo (em revisão, na banca, com defesa agendada);
+- quatro TCCs aprovados e já **publicados no repositório**.
+
+⚠️ A carga **apaga os dados atuais** do banco.
+
+Abra **http://localhost:5173** e entre com uma das contas (senha `123456` para todas):
+
+| Conta | Papel |
+|---|---|
+| `aluno@hubtcc.dev` · `aluno2@hubtcc.dev` | Aluno, sem TCC (para testar o fluxo do zero) |
+| `orientador@hubtcc.dev` | Orientador |
+| `avaliador1@hubtcc.dev` · `avaliador2@hubtcc.dev` | Avaliador |
+| `coordenacao@hubtcc.dev` | Coordenação |
+| `professor@hubtcc.dev` | Orientador + Avaliador + Coordenação (seletor "Ver como") |
+
+Para começar só com os usuários, sem TCCs, use `make fixtures`, ou `docker compose exec php bin/console doctrine:fixtures:load -n --group=base`.
+
+### Endereços
 
 | Serviço | Endereço |
-|---------|----------|
+|---|---|
+| Sistema | http://localhost:5173 |
 | API | https://localhost/api/health (aceite o certificado local na primeira vez) |
-| Frontend | http://localhost:5173 |
-| Mailpit (e-mails de teste) | http://localhost:8025 |
 | PostgreSQL | `localhost:5432` · usuário `app` · senha `app` · banco `hubtcc` |
 | Adminer (opcional) | `docker compose --profile tools up -d adminer` → http://localhost:8080 |
+| Mailpit | http://localhost:8025 (reservado para quando o envio de e-mail entrar) |
 
-Na primeira subida (e depois de um `git pull` com migrations novas), prepare o banco:
+### Roteiro para testar o fluxo completo
 
-```bash
-docker compose exec php bin/console doctrine:migrations:migrate -n
-docker compose exec php bin/console doctrine:fixtures:load -n   # usuários de teste
-```
-
-Contas de teste (senha `123456`): `aluno@hubtcc.dev`, `orientador@hubtcc.dev`, `avaliador1@hubtcc.dev`, `avaliador2@hubtcc.dev`, `coordenacao@hubtcc.dev` e `professor@hubtcc.dev` (Orientador + Avaliador + Coordenação, para testar o seletor "Ver como").
-
-> Migração em andamento: login, usuários, cadastros e o fluxo completo do TCC (até a defesa, as notas e o resultado) já usam o Symfony. As notificações do sininho (Fase 6) e o repositório de TCCs publicados (Fase 7) também. Falta a Fase 8 (remover o backend antigo); o envio por e-mail ficou para depois.
-
-**Roteiro para testar o fluxo:** entre como `aluno@` e cadastre o TCC, envie um PDF e submeta → como `coordenacao@`, abra o TCC e monte a banca com Arthur e Alice → como `orientador@`, aprove e envie à banca → como `avaliador1@` e `avaliador2@`, dê os pareceres → se alguém pedir correções, o TCC volta ao aluno; se todos aprovarem, vai para a revisão final do orientador e depois para "Aguardando defesa" → o orientador agenda a defesa (para testar na hora, marque um horário que já passou) → cada avaliador lança as notas de projeto e apresentação → a média sai sozinha: acima da mínima (6,0) o TCC é **aprovado**; abaixo, a coordenação decide entre nova defesa e reprovação → com o TCC aprovado, o aluno clica em "Autorizar publicação" → a coordenação recebe o aviso no sininho e clica em "Publicar no repositório" → qualquer usuário logado encontra o TCC em **Repositório**, no topo (a busca aceita palavras sem acento).
+1. Como `aluno@`, cadastre o TCC, envie um PDF e submeta.
+2. Como `coordenacao@`, abra o TCC e monte a banca com Arthur e Alice.
+3. Como `orientador@`, aprove e envie à banca.
+4. Como `avaliador1@` e `avaliador2@`, dê os pareceres.
+5. Se alguém pediu correções, o TCC volta ao aluno. Se todos aprovaram, vai para a revisão final do orientador e depois para "Aguardando defesa".
+6. O orientador agenda a defesa. Para testar na hora, marque um horário que já passou.
+7. Cada avaliador lança as notas de projeto e apresentação. A média sai sozinha: acima da mínima, o TCC é **aprovado**; abaixo, a coordenação decide.
+8. O aluno clica em **Autorizar publicação**. A coordenação recebe o aviso no sininho e clica em **Publicar no repositório**.
+9. Qualquer usuário encontra o TCC em **Repositório**, no topo. A busca entende português ("fraude" acha "fraudes") e ignora acentos.
 
 ### Ligar sozinho junto com o computador
 
-Depois da primeira subida, os containers voltam sozinhos sempre que o Docker inicia. Para nem precisar abrir nada:
+Depois da primeira subida, os containers voltam sozinhos sempre que o Docker inicia:
 
 1. Docker Desktop → **Settings** → **General** → marque **"Start Docker Desktop when you sign in to your computer"**.
-2. Pronto: ao ligar o PC, em cerca de 1 minuto http://localhost:5173 já está no ar.
+2. Ao ligar o PC, em cerca de 1 minuto o http://localhost:5173 já está no ar.
 
-Para parar de vez: `docker compose down` (os dados continuam salvos). Para voltar: `docker compose up -d`.
+Para parar: `docker compose down`. Os dados continuam salvos. Para voltar: `docker compose up -d`.
 
-### Colocar num servidor
+### Depois de um `git pull`
 
-Está tudo preparado: veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
-
-Comandos úteis: `make help` lista tudo; `make qa` roda estilo, PHPStan e testes; `make sh` abre um shell na API.
-
-## Rodando o backend atual (NestJS)
-
-### 1. Banco de dados
+Se vieram bibliotecas ou migrations novas:
 
 ```bash
-docker compose -f backend/docker-compose.yml up -d
+docker compose up -d --force-recreate php
+docker compose exec php bin/console doctrine:migrations:migrate -n
 ```
 
-Sobe um MySQL em `localhost:3306` (usuário `root`, senha `root`, banco `hubtcc`).
+## Desenvolvimento
 
-### 2. Backend
+`make help` lista todos os comandos. Os principais:
 
-```bash
-cd backend
-cp .env.example .env
-npm install
-npx prisma migrate dev
-npx prisma db seed
-npm run start:dev
-```
-
-O backend sobe em `http://localhost:3000`. O seed cria um usuário de cada papel (senha `123456` para todos):
-
-- `aluno@hubtcc.dev`
-- `orientador@hubtcc.dev`
-- `avaliador1@hubtcc.dev` / `avaliador2@hubtcc.dev`
-- `coordenacao@hubtcc.dev`
-
-Para o login com Google funcionar de verdade, preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` no `.env` com credenciais de um projeto no Google Cloud Console (OAuth consent screen + credencial "Web application", com redirect URI `http://localhost:3000/auth/google/callback`).
-
-### 3. Frontend
-
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
-```
-
-Sobe em `http://localhost:5173`.
-
-## Fluxo de teste sugerido
-
-1. Login como aluno → cadastrar TCC → enviar PDF → submeter
-2. Login como orientador → aprovar (o TCC vai para "em avaliação pela banca")
-3. Login como coordenação → aba "TCCs" → abrir o TCC → montar a banca avaliadora
-4. Login como cada avaliador → dar parecer (aprovar / solicitar correção)
-5. Quando todos derem parecer: se algum pediu correção, o TCC volta para o aluno com os comentários; se todos aprovarem, vai para a revisão final do orientador
-6. Orientador dá aprovação final e lança as notas
+| Comando | O que faz |
+|---|---|
+| `make up` / `make down` | Sobe / derruba o ambiente |
+| `make sh` | Shell no container da API |
+| `make db-reset` | Recria o banco com os dados base |
+| `make test` | Testes da API |
+| `make coverage` | Testes da API com relatório HTML, copiado para `api/var/coverage/index.html` |
+| `make web-test` | Tipos e testes da web |
+| `make qa` | Tudo o que a CI roda: estilo, PHPStan, testes e cobertura mínima (API e web) |
 
 ## Estrutura
 
 ```
-api/        Symfony (novo backend, em construção)
-backend/    NestJS (API REST, Prisma, upload de PDF em disco local)
-frontend/   React + Vite (SPA consumindo a API)
-docs/       Arquitetura e decisões
+api/     Symfony: entidades, workflow do TCC, voters, serviços, busca e testes
+web/     React + Vite: telas de cada papel, sininho e repositório
+docs/    ARQUITETURA.md (decisões, modelo, fluxo, fases) e DEPLOY.md (servidor)
 ```
 
-Veja `backend/src` para os módulos (`auth`, `users`, `tcc`, `storage`, `thematic-areas`, `keywords`, `periods`) e `frontend/src/pages` para as telas de cada papel.
+Telas por papel: `web/src/pages/{student,advisor,evaluator,coordination,repository}`.
