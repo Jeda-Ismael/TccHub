@@ -86,6 +86,42 @@ export interface TccPermissions {
   advisorReview: boolean;
   evaluate: boolean;
   manageBoard: boolean;
+  scheduleDefense: boolean;
+  gradeDefense: boolean;
+  decide: boolean;
+}
+
+export type DefenseOutcome = 'PENDING' | 'PASSED' | 'FAILED';
+
+export interface DefenseGrade {
+  evaluator: UserSummary;
+  projectGrade: number;
+  presentationGrade: number;
+  comment: string | null;
+  isMe: boolean;
+}
+
+/** Tentativa de defesa atual. As notas vêm às cegas: cada avaliador vê só a própria até fechar. */
+export interface Defense {
+  attempt: number;
+  scheduledAt: string | null;
+  location: string | null;
+  meetingUrl: string | null;
+  hasStarted: boolean;
+  outcome: DefenseOutcome;
+  projectAverage: number | null;
+  presentationAverage: number | null;
+  finalGrade: number | null;
+  gradedCount: number;
+  boardSize: number;
+  grades: DefenseGrade[];
+}
+
+export interface PreviousDefense {
+  attempt: number;
+  scheduledAt: string | null;
+  finalGrade: number | null;
+  outcome: DefenseOutcome;
 }
 
 export interface Tcc {
@@ -101,6 +137,8 @@ export interface Tcc {
   documents: TccDocument[];
   board: BoardMember[];
   statusHistory: TccStatusHistoryEntry[];
+  defense: Defense | null;
+  previousDefenses: PreviousDefense[];
   finalGrade: number | null;
   publicationAuthorized: boolean;
   publishedAt: string | null;

@@ -8,7 +8,7 @@ import { StudentHome } from './student/StudentHome';
 import { EvaluatorHome } from './evaluator/EvaluatorHome';
 import { EvaluatorTccDetail } from './evaluator/EvaluatorTccDetail';
 import { mockApi } from '../test/mockApi';
-import { makeTcc } from '../test/fixtures';
+import { makeTcc, perms } from '../test/fixtures';
 
 function renderWithProviders(ui: ReactNode, path = '/') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -35,7 +35,7 @@ describe('tela do aluno', () => {
         { id: 'b1', evaluator: { id: 'e1', name: 'Arthur', email: 'x' }, verdict: 'CORRECTIONS_REQUESTED', comment: 'Revisar a metodologia', isMe: false },
         { id: 'b2', evaluator: { id: 'e2', name: 'Alice', email: 'y' }, verdict: 'APPROVED', comment: null, isMe: false },
       ],
-      permissions: { edit: true, upload: true, submit: true, advisorReview: false, evaluate: false, manageBoard: false },
+      permissions: perms({ edit: true, upload: true, submit: true }),
     });
     mockApi((config) => (config.url === '/tcc' ? { status: 200, data: [tcc] } : config.url === '/tcc/t1' ? { status: 200, data: tcc } : { status: 200, data: [] }));
 
@@ -46,7 +46,7 @@ describe('tela do aluno', () => {
   });
 
   it('mostra a mensagem da API quando a submissão é recusada', async () => {
-    const tcc = makeTcc({ permissions: { edit: true, upload: true, submit: true, advisorReview: false, evaluate: false, manageBoard: false } });
+    const tcc = makeTcc({ permissions: perms({ edit: true, upload: true, submit: true }) });
     mockApi((config) => {
       if (config.url === '/tcc/t1/submit') return { status: 409, data: { statusCode: 409, message: 'Envie o PDF do TCC antes de submeter.' } };
       if (config.url === '/tcc') return { status: 200, data: [tcc] };
@@ -68,14 +68,14 @@ describe('telas do avaliador', () => {
       title: 'Aguarda você',
       status: 'SENT_TO_EVALUATION',
       board: [{ id: 'b1', evaluator: { id: 'me', name: 'Eu', email: 'x' }, verdict: 'PENDING', comment: null, isMe: true }],
-      permissions: { edit: false, upload: false, submit: false, advisorReview: false, evaluate: true, manageBoard: false },
+      permissions: perms({ evaluate: true }),
     });
     const done = makeTcc({ id: 't2', title: 'Já avaliado', status: 'ADVISOR_FINAL_REVIEW' });
     mockApi(() => ({ status: 200, data: [waiting, done] }));
 
     renderWithProviders(<EvaluatorHome />);
 
-    const waitingSection = (await screen.findByRole('heading', { name: 'Aguardando seu parecer' })).parentElement!;
+    const waitingSection = (await screen.findByRole('heading', { name: 'Aguardando você' })).parentElement!;
     expect(waitingSection).toHaveTextContent('Aguarda você');
     expect(waitingSection).not.toHaveTextContent('Já avaliado');
   });
@@ -84,7 +84,7 @@ describe('telas do avaliador', () => {
     const tcc = makeTcc({
       status: 'SENT_TO_EVALUATION',
       board: [{ id: 'b1', evaluator: { id: 'me', name: 'Eu', email: 'x' }, verdict: 'PENDING', comment: null, isMe: true }],
-      permissions: { edit: false, upload: false, submit: false, advisorReview: false, evaluate: true, manageBoard: false },
+      permissions: perms({ evaluate: true }),
     });
     const calls = mockApi((config) => ({ status: 200, data: tcc }));
     renderWithProviders(

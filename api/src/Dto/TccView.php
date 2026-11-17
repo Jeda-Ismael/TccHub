@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Dto;
 
 use App\Entity\BoardMember;
+use App\Entity\Defense;
+use App\Entity\DefenseGrade;
 use App\Entity\Tcc;
 use App\Entity\TccDocument;
 use App\Entity\TccStatusHistory;
 use App\Entity\User;
 use App\Enum\EvaluationVerdict;
 use App\Enum\PeriodType;
+use App\Enum\Role;
 use App\Enum\TccStatus;
 use App\Security\Voter\TccVoter;
 use App\Service\PeriodChecker;
+use Symfony\Component\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\UriSigner;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -35,6 +40,8 @@ final class TccView implements ResetInterface
         private readonly UrlGeneratorInterface $urls,
         private readonly UriSigner $signer,
         private readonly PeriodChecker $periods,
+        private readonly ClockInterface $clock,
+        #[Autowire(param: 'app.timezone')] private readonly string $timezone,
     ) {
     }
 
@@ -72,11 +79,21 @@ final class TccView implements ResetInterface
             'documents' => array_reverse($tcc->getDocuments()->map($this->document(...))->getValues()),
             'board' => $this->board($tcc, $viewer),
             'statusHistory' => $tcc->getStatusHistory()->map($this->history(...))->getValues(),
-            'finalGrade' => null === $tcc->getFinalGrade() ? null : (float) $tcc->getFinalGrade(),
+            'defense' => $this->defense($tcc, $viewer),
+            'previousDefenses' => array_values(array_map(
+                fn (Defense $d): array => [
+                    'attempt' => $d->getAttempt(),
+                    'scheduledAt' => $this->date($d->getScheduledAt()),
+                    'finalGrade' => self::number($d->getFinalGrade()),
+                    'outcome' => $d->getOutcome()->value,
+                ],
+                array_filter($tcc->getDefenses()->getValues(), static fn (Defense $d): bool => $d !== $tcc->getCurrentDefense()),
+            )),
+            'finalGrade' => self::number($tcc->getFinalGrade()),
             'publicationAuthorized' => $tcc->isPublicationAuthorized(),
-            'publishedAt' => $tcc->getPublishedAt()?->format(\DATE_ATOM),
-            'createdAt' => $tcc->getCreatedAt()->format(\DATE_ATOM),
-            'updatedAt' => $tcc->getUpdatedAt()->format(\DATE_ATOM),
+            'publishedAt' => $this->date($tcc->getPublishedAt()),
+            'createdAt' => $this->date($tcc->getCreatedAt()),
+            'updatedAt' => $this->date($tcc->getUpdatedAt()),
             'evaluationPeriodOpen' => $this->isEvaluationPeriodOpen(),
             'permissions' => [
                 'edit' => $this->authorization->isGranted(TccVoter::EDIT, $tcc),
@@ -86,8 +103,67 @@ final class TccView implements ResetInterface
                 // Fora do prazo de avaliação a tela não oferece o formulário (a API recusaria)
                 'evaluate' => $this->authorization->isGranted(TccVoter::EVALUATE, $tcc) && $this->isEvaluationPeriodOpen(),
                 'manageBoard' => $this->authorization->isGranted(TccVoter::MANAGE_BOARD, $tcc),
+                'scheduleDefense' => $this->authorization->isGranted(TccVoter::SCHEDULE_DEFENSE, $tcc),
+                // Notas só a partir do horário da defesa (a API recusaria antes)
+                'gradeDefense' => $this->authorization->isGranted(TccVoter::GRADE_DEFENSE, $tcc)
+                    && true === $tcc->getCurrentDefense()?->hasStartedAt($this->clock->now()),
+                'decide' => $this->authorization->isGranted(TccVoter::DECIDE, $tcc),
             ],
         ];
+    }
+
+    /**
+     * Tentativa de defesa atual. Notas às cegas: cada avaliador vê só a própria
+     * até a defesa fechar (mesmo quem também é coordenação); a coordenação de
+     * fora da banca acompanha tudo; aluno e orientador veem as notas quando sai
+     * o resultado.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function defense(Tcc $tcc, User $viewer): ?array
+    {
+        $defense = $tcc->getCurrentDefense();
+        if (null === $defense) {
+            return null;
+        }
+
+        $closed = $defense->isClosed();
+        $seesAll = $closed || (null === $tcc->findBoardMember($viewer) && $viewer->hasRole(Role::Coordination));
+        $grades = array_values(array_filter(
+            $defense->getGrades()->getValues(),
+            static fn (DefenseGrade $g): bool => $seesAll || $g->getBoardMember()->getEvaluator()->getId()->equals($viewer->getId()),
+        ));
+
+        return [
+            'attempt' => $defense->getAttempt(),
+            'scheduledAt' => $this->date($defense->getScheduledAt()),
+            'location' => $defense->getLocation(),
+            'meetingUrl' => $defense->getMeetingUrl(),
+            'hasStarted' => $defense->hasStartedAt($this->clock->now()),
+            'outcome' => $defense->getOutcome()->value,
+            'projectAverage' => self::number($defense->getProjectAverage()),
+            'presentationAverage' => self::number($defense->getPresentationAverage()),
+            'finalGrade' => self::number($defense->getFinalGrade()),
+            'gradedCount' => $defense->getGrades()->count(),
+            'boardSize' => $tcc->getBoardMembers()->count(),
+            'grades' => array_map(static fn (DefenseGrade $g): array => [
+                'evaluator' => UserView::summary($g->getBoardMember()->getEvaluator()),
+                'projectGrade' => (float) $g->getProjectGrade(),
+                'presentationGrade' => (float) $g->getPresentationGrade(),
+                'comment' => $g->getComment(),
+                'isMe' => $g->getBoardMember()->getEvaluator()->getId()->equals($viewer->getId()),
+            ], $grades),
+        ];
+    }
+
+    private function date(?\DateTimeImmutable $date): ?string
+    {
+        return $date?->setTimezone(new \DateTimeZone($this->timezone))->format(\DATE_ATOM);
+    }
+
+    private static function number(?string $decimal): ?float
+    {
+        return null === $decimal ? null : (float) $decimal;
     }
 
     /** @return list<array<string, mixed>> */
@@ -122,7 +198,7 @@ final class TccView implements ResetInterface
             'version' => $document->getVersion(),
             'originalName' => $document->getOriginalName(),
             'sizeBytes' => $document->getSizeBytes(),
-            'uploadedAt' => $document->getUploadedAt()->format(\DATE_ATOM),
+            'uploadedAt' => $this->date($document->getUploadedAt()),
             'downloadUrl' => $this->signer->sign($url, new \DateTimeImmutable('+'.self::DOWNLOAD_LINK_TTL.' seconds')),
         ];
     }
@@ -137,7 +213,7 @@ final class TccView implements ResetInterface
             'transition' => $entry->getTransition(),
             'comment' => $entry->getComment(),
             'changedBy' => null === $entry->getChangedBy() ? null : UserView::summary($entry->getChangedBy()),
-            'createdAt' => $entry->getCreatedAt()->format(\DATE_ATOM),
+            'createdAt' => $this->date($entry->getCreatedAt()),
         ];
     }
 }

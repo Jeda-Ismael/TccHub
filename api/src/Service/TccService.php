@@ -17,7 +17,6 @@ use App\Exception\TransitionNotAllowed;
 use App\Repository\SettingsRepository;
 use App\Repository\TccRepository;
 use App\Repository\UserRepository;
-use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\File\File;
@@ -40,6 +39,7 @@ final class TccService
         private readonly SettingsRepository $settings,
         private readonly PeriodChecker $periods,
         private readonly DocumentStorage $storage,
+        private readonly TccLocker $locker,
     ) {
     }
 
@@ -77,6 +77,17 @@ final class TccService
      */
     public function update(Tcc $tcc, ?string $title, ?string $abstract, ?string $advisorId, ?array $thematicAreaIds, ?array $keywordIds): void
     {
+        $this->locker->run($tcc, function () use ($tcc, $title, $abstract, $advisorId, $thematicAreaIds, $keywordIds): void {
+            $this->applyUpdate($tcc, $title, $abstract, $advisorId, $thematicAreaIds, $keywordIds);
+        });
+    }
+
+    /**
+     * @param list<string>|null $thematicAreaIds
+     * @param list<string>|null $keywordIds
+     */
+    private function applyUpdate(Tcc $tcc, ?string $title, ?string $abstract, ?string $advisorId, ?array $thematicAreaIds, ?array $keywordIds): void
+    {
         if (null !== $title) {
             $tcc->changeTitle($title);
         }
@@ -92,8 +103,6 @@ final class TccService
         if (null !== $keywordIds) {
             $tcc->replaceKeywords($this->findAll(Keyword::class, $keywordIds, 'Palavra-chave'));
         }
-
-        $this->em->flush();
     }
 
     public function uploadDocument(Tcc $tcc, File $file, string $originalName, User $uploadedBy): void
@@ -104,13 +113,11 @@ final class TccService
 
         try {
             // Travado: dois envios ao mesmo tempo não disputam o mesmo número de versão
-            $this->transactional(function () use ($tcc, $path, $originalName, $size, $sha256, $uploadedBy): void {
-                $this->lockAndReload($tcc);
+            $this->locker->run($tcc, static function () use ($tcc, $path, $originalName, $size, $sha256, $uploadedBy): void {
                 if (!$tcc->getStatus()->isEditableByStudent()) {
                     throw new TransitionNotAllowed('O TCC mudou de status e não aceita mais envio de PDF.');
                 }
                 $tcc->addDocument($path, $originalName, $size, $sha256, $uploadedBy);
-                $this->em->flush();
             });
         } catch (\Throwable $e) {
             $this->storage->discard($path);
@@ -121,11 +128,9 @@ final class TccService
     /** Primeiro envio (rascunho) ou reenvio depois de correções. */
     public function submit(Tcc $tcc): void
     {
-        $this->transactional(function () use ($tcc): void {
-            $this->lockAndReload($tcc);
+        $this->locker->run($tcc, function () use ($tcc): void {
             $transition = TccStatus::CorrectionsRequested === $tcc->getStatus() ? 'resubmit' : 'submit';
             $this->apply($tcc, $transition);
-            $this->em->flush();
         });
     }
 
@@ -140,15 +145,13 @@ final class TccService
             throw new DomainRuleViolation('Explique o motivo no comentário.');
         }
 
-        $this->transactional(function () use ($tcc, $approve, $comment): void {
-            $this->lockAndReload($tcc);
+        $this->locker->run($tcc, function () use ($tcc, $approve, $comment): void {
             $transition = match (true) {
                 TccStatus::AdvisorFinalReview === $tcc->getStatus() => $approve ? 'final_approve' : 'final_request_corrections',
                 default => $approve ? 'advisor_approve' : 'advisor_reject',
             };
 
             $this->apply($tcc, $transition, $comment);
-            $this->em->flush();
         });
     }
 
@@ -174,9 +177,7 @@ final class TccService
             $wanted[$evaluator->getId()->toRfc4122()] = $evaluator;
         }
 
-        $this->transactional(function () use ($tcc, $wanted, $settings): void {
-            $this->lockAndReload($tcc);
-
+        $this->locker->run($tcc, function () use ($tcc, $wanted, $settings): void {
             // Durante a avaliação a banca continua precisando do tamanho mínimo
             if (TccStatus::SentToEvaluation === $tcc->getStatus() && \count($wanted) < $settings->getBoardMinSize()) {
                 throw new DomainRuleViolation(\sprintf('Com o TCC em avaliação, a banca precisa manter pelo menos %d avaliadores.', $settings->getBoardMinSize()));
@@ -202,8 +203,6 @@ final class TccService
             if (TccStatus::SentToEvaluation === $tcc->getStatus()) {
                 $this->closeRoundIfComplete($tcc);
             }
-
-            $this->em->flush();
         });
     }
 
@@ -218,9 +217,7 @@ final class TccService
             throw new DomainRuleViolation('Não há prazo de avaliação aberto no momento.');
         }
 
-        $this->transactional(function () use ($tcc, $evaluator, $verdict, $comment): void {
-            $this->lockAndReload($tcc);
-
+        $this->locker->run($tcc, function () use ($tcc, $evaluator, $verdict, $comment): void {
             if (TccStatus::SentToEvaluation !== $tcc->getStatus()) {
                 throw new TransitionNotAllowed('Este TCC não está mais em avaliação pela banca.');
             }
@@ -230,42 +227,7 @@ final class TccService
             $member->giveVerdict($verdict, $comment);
 
             $this->closeRoundIfComplete($tcc);
-            $this->em->flush();
         });
-    }
-
-    /**
-     * Trava a linha do TCC até o fim da transação e recarrega o que outra
-     * requisição pode ter mudado. O refresh do TCC recarrega a lista da banca,
-     * mas os BoardMember já em memória mantêm os dados antigos: por isso cada um
-     * é recarregado também (sem isso, um voto recém-gravado parecia pendente e
-     * a rodada nunca fechava).
-     */
-    /**
-     * Transação que desfaz tudo se algo falhar, sem fechar o EntityManager
-     * (o wrapInTransaction do Doctrine fecha, e uma regra de negócio barrada
-     * é um caso normal, não um erro do banco).
-     */
-    private function transactional(callable $operation): void
-    {
-        $connection = $this->em->getConnection();
-        $connection->beginTransaction();
-        try {
-            $operation();
-            $connection->commit();
-        } catch (\Throwable $e) {
-            $connection->rollBack();
-            throw $e;
-        }
-    }
-
-    private function lockAndReload(Tcc $tcc): void
-    {
-        $this->em->lock($tcc, LockMode::PESSIMISTIC_WRITE);
-        $this->em->refresh($tcc);
-        foreach ($tcc->getBoardMembers() as $member) {
-            $this->em->refresh($member);
-        }
     }
 
     /** Quando todos deram parecer: alguma correção devolve ao aluno; senão, vai para a revisão final. */

@@ -4,6 +4,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useAssignBoard, useSettings, useTcc, useUsers } from '../../api/hooks';
 import { Tcc } from '../../api/types';
 import { BoardList } from '../../components/BoardList';
+import { DefenseSection } from '../../components/DefenseSection';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
@@ -16,6 +17,7 @@ export function CoordinationTccDetail() {
   return (
     <div>
       <TccSummary tcc={tcc} />
+      <DefenseSection tcc={tcc} />
       {tcc.permissions.manageBoard ? <BoardForm tcc={tcc} /> : <BoardList board={tcc.board} />}
       <StatusHistoryTimeline entries={tcc.statusHistory} />
     </div>

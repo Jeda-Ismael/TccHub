@@ -8,6 +8,7 @@ use App\Dto\TccView;
 use App\Entity\Tcc;
 use App\Entity\User;
 use App\Enum\Role;
+use App\Enum\TccStatus;
 use App\Factory\KeywordFactory;
 use App\Factory\ThematicAreaFactory;
 use App\Factory\UserFactory;
@@ -38,8 +39,15 @@ final class TccListingQueriesTest extends KernelTestCase
             $tcc->replaceThematicAreas([$area]);
             $tcc->replaceKeywords([$keyword]);
             $tcc->addDocument("tcc/$i.pdf", 'tcc.pdf', 10, str_repeat('a', 64), $student);
-            $tcc->addBoardMember($evaluator);
+            $member = $tcc->addBoardMember($evaluator);
             $tcc->recordStatusChange(null, $tcc->getStatus(), 'create', $student);
+            // Metade com defesa agendada e nota lançada, para cobrir defesas e notas
+            if (0 === $i % 2) {
+                $tcc->setMarking(TccStatus::AwaitingDefense->value);
+                $defense = $tcc->openDefense();
+                $defense->schedule(new \DateTimeImmutable('-1 hour'), 'Sala 1', null, $evaluator);
+                $defense->grade($member, 8, 9, null);
+            }
             $em->persist($tcc);
         }
         $em->flush();

@@ -28,8 +28,14 @@ final class TccVoter extends Voter
     public const ADVISOR_REVIEW = 'TCC_ADVISOR_REVIEW';
     public const EVALUATE = 'TCC_EVALUATE';
     public const MANAGE_BOARD = 'TCC_MANAGE_BOARD';
+    public const SCHEDULE_DEFENSE = 'TCC_SCHEDULE_DEFENSE';
+    public const GRADE_DEFENSE = 'TCC_GRADE_DEFENSE';
+    public const DECIDE = 'TCC_DECIDE';
 
-    public const ATTRIBUTES = [self::VIEW, self::EDIT, self::UPLOAD, self::SUBMIT, self::ADVISOR_REVIEW, self::EVALUATE, self::MANAGE_BOARD];
+    public const ATTRIBUTES = [
+        self::VIEW, self::EDIT, self::UPLOAD, self::SUBMIT, self::ADVISOR_REVIEW, self::EVALUATE, self::MANAGE_BOARD,
+        self::SCHEDULE_DEFENSE, self::GRADE_DEFENSE, self::DECIDE,
+    ];
 
     protected function supports(string $attribute, mixed $subject): bool
     {
@@ -57,6 +63,15 @@ final class TccVoter extends Voter
             self::EVALUATE => TccStatus::SentToEvaluation === $subject->getStatus()
                 && false === $subject->findBoardMember($user)?->hasVoted(),
             self::MANAGE_BOARD => $isCoordination && !$subject->getStatus()->isBoardLocked(),
+            // Orientador do TCC ou coordenação; reagendar só enquanto ninguém lançou nota
+            self::SCHEDULE_DEFENSE => ($subject->isAdvisedBy($user) || $isCoordination)
+                && TccStatus::AwaitingDefense === $subject->getStatus()
+                && true === $subject->getCurrentDefense()?->getGrades()->isEmpty(),
+            // Membro da banca, com a defesa já agendada (o horário é conferido no serviço)
+            self::GRADE_DEFENSE => null !== $subject->findBoardMember($user)
+                && TccStatus::AwaitingDefense === $subject->getStatus()
+                && true === $subject->getCurrentDefense()?->isScheduled(),
+            self::DECIDE => $isCoordination && TccStatus::AwaitingDecision === $subject->getStatus(),
             default => false,
         };
     }

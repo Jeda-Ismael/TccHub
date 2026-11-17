@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fases 0 a 4 concluídas · Versão 6 · 2026-10
+> Status: decisões fechadas · Fases 0 a 5 concluídas · Versão 7 · 2026-10
 
 ---
 
@@ -575,7 +575,7 @@ O e-mail e a notificação do sininho usam o mesmo texto (template Twig). O e-ma
 | 2 · Auth e papéis ✅ | Login, registro, refresh, `/me`, gestão de usuários e papéis, novo visual do login, seletor de papel, Vitest no frontend | Login e troca de papel funcionam no frontend. Os Voters de TCC ficaram para a Fase 4, junto com as rotas que eles protegem |
 | 3 · Cadastros ✅ | Áreas, palavras-chave, períodos, configurações | Telas da coordenação funcionando |
 | 4 · TCC até a banca ✅ | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `AWAITING_DEFENSE` pelo frontend (testado de ponta a ponta no navegador) |
-| 5 · Defesa | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação |
+| 5 · Defesa ✅ | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação (testado no navegador até Aprovado) |
 | 6 · Notificações | Serviço `worker`, fila, e-mails, sininho, lembrete agendado | E-mails no Mailpit; contador no frontend |
 | 7 · Repositório | Autorização, publicação, busca full-text, download | Busca por palavra-chave retorna TCCs publicados |
 | 8 · Corte | `make demo`, remover NestJS, `frontend/` → `web/`, README | Repositório só com Symfony; cobertura ≥ 85% |
@@ -612,6 +612,21 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - **Um TCC em andamento por aluno**: novo TCC só depois de o anterior ser aprovado ou reprovado.
 - **Listagem sem N+1**: as coleções são carregadas em lote (consultas fixas, independentemente do número de TCCs). Coberto por `TccListingQueriesTest`.
 - Datas impossíveis (31/02) são rejeitadas; nomes de arquivo longos são encurtados; envios simultâneos respondem 409 em vez de 500.
+
+## 14.3 Notas da Fase 5 (defesa)
+
+| Ação | Quem | Quando |
+|------|------|--------|
+| Agendar / reagendar (`PUT /api/tcc/{id}/defense`) | Orientador do TCC ou coordenação | `AWAITING_DEFENSE`, antes da primeira nota |
+| Lançar / corrigir notas (`PUT /api/tcc/{id}/defense/grade`) | Membro da banca | A partir do horário agendado, até toda a banca lançar |
+| Decidir (`POST /api/tcc/{id}/decision`, `new_defense` ou `reject`) | Coordenação | `AWAITING_DECISION`, com justificativa |
+
+- **Cálculo:** média das notas de projeto, média das de apresentação e nota final = média das duas. Tudo em centésimos inteiros (`App\Util\Grade`), com meio centésimo arredondando para cima. Ex.: (7,75 + 9,50) / 2 = 8,625 → **8,63**. As médias parciais aparecem arredondadas, mas só a final é arredondada no cálculo (projeto 5,995 e apresentação 5,99 dão 5,9925 → 5,99, não 6,00). Notas com mais de duas casas são recusadas.
+- **Resultado automático** quando o último avaliador lança: final ≥ nota mínima (configurações) → `APPROVED` e a nota fica no TCC; abaixo → `AWAITING_DECISION`.
+- **Nova defesa** abre a tentativa seguinte (sem data, sem notas); as anteriores aparecem em `previousDefenses`.
+- **Notas às cegas** até a defesa fechar: cada avaliador vê só a própria (mesmo quem também é coordenação); a coordenação de fora da banca acompanha; aluno e orientador veem tudo no resultado.
+- **Concorrência:** `TccLocker` centraliza "travar e recarregar" (banca, defesa e notas) para todas as ações do TCC.
+- **Horários:** a API manda as datas do TCC no fuso da instituição e a tela mostra exatamente esse horário (`frontend/src/utils/dates.ts`), sem converter para o fuso do navegador. O campo de agendamento usa `datetime-local`, interpretado no fuso da instituição.
 
 ## 15. Backlog (fora do escopo)
 
