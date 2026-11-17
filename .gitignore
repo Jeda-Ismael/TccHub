@@ -15,5 +15,8 @@ dist/
 # O .env do Symfony só tem valores padrão de desenvolvimento e deve ser versionado
 !/api/.env
 
+# Segredos de produção (modelo em .env.prod.example)
+.env.prod
+
 # Cache do Vite (nunca versionar)
 .vite/

@@ -68,7 +68,20 @@ COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/
 CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--watch" ]
 
 
-# Imagem de produção (ainda não usada: o deploy é só local por enquanto)
+# Build do frontend React para produção. O código vem do contexto "web"
+# (pasta frontend/), passado pelo compose.prod.yaml em additional_contexts.
+FROM node:22-alpine AS web_build
+
+WORKDIR /web
+
+COPY --from=web package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY --from=web . ./
+RUN npm run build
+
+
+# Imagem de produção: API + frontend compilado no mesmo container
 FROM frankenphp_base AS frankenphp_prod
 
 ENV APP_ENV=prod
@@ -82,6 +95,7 @@ COPY --link composer.* symfony.* ./
 RUN composer install --no-cache --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress
 
 COPY --link --exclude=frankenphp/ . ./
+COPY --link --from=web_build /web/dist/ ./public/
 
 RUN <<-EOF
 	mkdir -p var/cache var/log var/share

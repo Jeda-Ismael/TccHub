@@ -42,6 +42,19 @@ Contas de teste (senha `123456`): `aluno@hubtcc.dev`, `orientador@hubtcc.dev`, `
 
 **Roteiro para testar o fluxo:** entre como `aluno@` e cadastre o TCC, envie um PDF e submeta → como `coordenacao@`, abra o TCC e monte a banca com Arthur e Alice → como `orientador@`, aprove e envie à banca → como `avaliador1@` e `avaliador2@`, dê os pareceres → se alguém pedir correções, o TCC volta ao aluno; se todos aprovarem, vai para a revisão final do orientador e depois para "Aguardando defesa".
 
+### Ligar sozinho junto com o computador
+
+Depois da primeira subida, os containers voltam sozinhos sempre que o Docker inicia. Para nem precisar abrir nada:
+
+1. Docker Desktop → **Settings** → **General** → marque **"Start Docker Desktop when you sign in to your computer"**.
+2. Pronto: ao ligar o PC, em cerca de 1 minuto http://localhost:5173 já está no ar.
+
+Para parar de vez: `docker compose down` (os dados continuam salvos). Para voltar: `docker compose up -d`.
+
+### Colocar num servidor
+
+Está tudo preparado: veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 Comandos úteis: `make help` lista tudo; `make qa` roda estilo, PHPStan e testes; `make sh` abre um shell na API.
 
 ## Rodando o backend atual (NestJS)

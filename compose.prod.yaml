@@ -1,0 +1,30 @@
+# Produção (servidor). Uso:
+#   docker compose -f compose.yaml -f compose.prod.yaml --env-file .env.prod up -d --build --wait
+# Passo a passo completo em docs/DEPLOY.md.
+services:
+  php:
+    image: ${IMAGES_PREFIX:-}hubtcc-php-prod
+    build:
+      context: ./api
+      target: frankenphp_prod
+      # O build de produção também compila o frontend React (pasta frontend/)
+      additional_contexts:
+        web: ./frontend
+    environment:
+      APP_ENV: prod
+      # Domínio público: o Caddy emite o certificado HTTPS (Let's Encrypt) sozinho
+      SERVER_NAME: "${SERVER_NAME:?Defina SERVER_NAME no .env.prod, por exemplo tcc.suafaculdade.edu.br}"
+      DEFAULT_URI: https://${SERVER_NAME}
+      APP_SECRET: ${APP_SECRET:?Defina APP_SECRET no .env.prod}
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:?Defina JWT_PASSPHRASE no .env.prod}
+    volumes:
+      # Chaves do JWT geradas na primeira subida; o volume evita derrubar todas
+      # as sessões a cada atualização da imagem
+      - jwt_keys:/app/config/jwt
+
+  database:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env.prod}
+
+volumes:
+  jwt_keys:
