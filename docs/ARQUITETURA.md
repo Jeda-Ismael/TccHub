@@ -429,6 +429,7 @@ Prefixo `/api`. JSON sem envelope. Documentação navegável (Swagger UI, Nelmio
 | POST | `/auth/register` | público (cria aluno) |
 | POST | `/auth/login` ✎ | público. Retorna `accessToken` + cookie de refresh. Payload do JWT: `roles[]` |
 | POST | `/auth/refresh` ✱ · `/auth/logout` ✱ | cookie |
+| POST | `/auth/forgot-password` ✱ · `/auth/reset-password` ✱ | público. Troca de senha por link no e-mail (§9) |
 | GET | `/me` ✱ | autenticado |
 
 **Cadastros**
@@ -481,11 +482,12 @@ Prefixo `/api`. JSON sem envelope. Documentação navegável (Swagger UI, Nelmio
 
 ## 9. Notificações
 
-**Hoje (Fase 6, sem e-mail):** os avisos do sininho são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Não há fila nem `worker`. Quem fez a ação não recebe aviso do que ele mesmo fez, exceto quando o aviso é uma tarefa nova para ele (`DECISION_PENDING`).
+**Sininho e e-mail:** os avisos são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Cada aviso também vira um e-mail com o mesmo título e texto (`templates/email/notification.*.twig`). O Mailer só põe o e-mail na fila do Messenger (transporte Doctrine, tabela `messenger_messages`, na mesma transação); o serviço `worker` (`messenger:consume async scheduler_default`) envia, com 3 novas tentativas e fila `failed`. Usuários desativados recebem o aviso no sininho, mas não o e-mail. Quem fez a ação não recebe aviso do que ele mesmo fez, exceto quando o aviso é uma tarefa nova para ele (`DECISION_PENDING`).
 
 ```
 Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / DefenseService::schedule
         └→ Notifier::notify(type, tcc, destinatários, título, texto) → INSERT notifications (sininho)
+                                                                   → INSERT messenger_messages (e-mail) → worker → SMTP
 ```
 
 | Tipo | Quando | Para |
@@ -499,7 +501,7 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 | `DEFENSE_SCHEDULED` | Defesa agendada ou reagendada | Aluno, orientador, banca |
 | `DECISION_PENDING` | Média abaixo do mínimo | Todos com papel de coordenação, inclusive quem deu a última nota (é uma tarefa nova) |
 | `TCC_APPROVED` / `TCC_REJECTED` | Estado final | Aluno, orientador |
-| `GRADES_PENDING` | Horário da defesa chegou | *Adiado (precisa do agendador, entra com o e-mail)* |
+| `GRADES_PENDING` | Horário da defesa chegou (agendador a cada 15 min, `src/Schedule.php`) | Quem da banca ainda não lançou nota. Uma vez por defesa; reagendar vale de novo |
 | `PUBLICATION_REQUESTED` / `PUBLICATION_WITHDRAWN` | Aluno autorizou / retirou a autorização de um TCC publicado | Coordenação |
 | `TCC_PUBLISHED` / `TCC_UNPUBLISHED` | Coordenação publicou / tirou do repositório | Aluno |
 
@@ -507,7 +509,7 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 
 **Frontend:** `components/NotificationBell.tsx` no topo. O contador é consultado a cada 30 s; quando aumenta, as telas de TCC abertas recarregam.
 
-**Depois (e-mail, no backlog):** o `Notifier` passa também a despachar uma mensagem para a fila do Messenger (transporte Doctrine), consumida pelo serviço `worker`, que envia o e-mail com o mesmo título e texto. O lembrete `GRADES_PENDING` roda no `worker` via Symfony Scheduler.
+**Esqueci minha senha:** `POST /auth/forgot-password {email}` responde 202 sempre (não revela quem tem conta; 3 pedidos a cada 15 min por IP e e-mail) e manda um link de uso único, válido por 1 hora (só o SHA-256 do token fica no banco). `POST /auth/reset-password {token, password}` troca a senha, apaga os refresh tokens do usuário (as sessões abertas caem) e já devolve o login.
 
 
 ---
@@ -677,9 +679,8 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 **Outros**
 
 
-- **Notificações por e-mail** (adiadas na Fase 6): serviço `worker`, fila Doctrine do Messenger, Mailpit em dev, mesmos textos do sininho, e o lembrete `GRADES_PENDING` via Scheduler (ver §9)
 - Login com Google
-- Recuperação de senha / verificação de e-mail
+- Verificação de e-mail no cadastro
 - Deploy de fato num servidor (a configuração já está pronta — ver `docs/DEPLOY.md`)
 - Notificações em tempo real via Mercure
 - Armazenamento em S3/MinIO

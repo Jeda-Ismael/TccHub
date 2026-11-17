@@ -64,7 +64,7 @@ Para começar só com os usuários, sem TCCs, use `make fixtures`, ou `docker co
 | Documentação da API (Swagger) | https://localhost/api/docs · o JSON do OpenAPI fica em `/api/docs.json` |
 | PostgreSQL | `localhost:5432` · usuário `app` · senha `app` · banco `hubtcc` |
 | Adminer (opcional) | `docker compose --profile tools up -d adminer` → http://localhost:8080 |
-| Mailpit | http://localhost:8025 (reservado para quando o envio de e-mail entrar) |
+| Mailpit (caixa de entrada dos e-mails de teste) | http://localhost:8025 |
 
 ### Roteiro para testar o fluxo completo
 

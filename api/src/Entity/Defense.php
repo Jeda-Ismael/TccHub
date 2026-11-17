@@ -63,6 +63,10 @@ class Defense
     #[ORM\OneToMany(targetEntity: DefenseGrade::class, mappedBy: 'defense', cascade: ['persist'], orphanRemoval: true)]
     private Collection $grades;
 
+    /** Quando a banca foi lembrada de lançar as notas (uma vez por defesa). */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $gradesReminderSentAt = null;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -99,6 +103,8 @@ class Defense
         }
 
         $this->scheduledAt = $at;
+        // Reagendada: o lembrete vale para o novo horário
+        $this->gradesReminderSentAt = null;
         $this->location = '' === $location ? null : $location;
         $this->meetingUrl = '' === $meetingUrl ? null : $meetingUrl;
         $this->scheduledBy = $by;
@@ -228,6 +234,16 @@ class Defense
     public function getGrades(): Collection
     {
         return $this->grades;
+    }
+
+    public function markGradesReminderSent(\DateTimeImmutable $at): void
+    {
+        $this->gradesReminderSentAt = $at;
+    }
+
+    public function getGradesReminderSentAt(): ?\DateTimeImmutable
+    {
+        return $this->gradesReminderSentAt;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

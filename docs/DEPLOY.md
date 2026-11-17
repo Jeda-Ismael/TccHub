@@ -85,6 +85,15 @@ Guarde os dois arquivos fora do servidor. Um `cron` diário com esses comandos j
 | `make prod-down` | derruba (os dados ficam nos volumes) |
 | `make prod-user c='...'` | cria usuário pelo terminal |
 
-## Quando chegar a Fase 6 (e-mails)
+## E-mails
 
-Será preciso adicionar ao `.env.prod` o `MAILER_DSN` de um provedor SMTP (ex.: Brevo, Mailgun, o SMTP da faculdade). O serviço `worker` que envia os e-mails entra no `compose.yaml` nessa fase.
+Os avisos do sininho também vão por e-mail, junto com o link de "esqueci minha senha" e o lembrete de notas da defesa. Quem envia é o serviço `worker`, que sobe junto com a API e consome a fila (tabela `messenger_messages` no próprio PostgreSQL).
+
+No `.env.prod`, configure:
+
+| Variável | Exemplo |
+|----------|---------|
+| `MAILER_DSN` | `smtp://usuario:senha@smtp-relay.brevo.com:587` (Brevo, Mailgun, o SMTP da faculdade...) |
+| `MAILER_FROM` | `hubtcc <nao-responda@suafaculdade.edu.br>` |
+
+Sem `MAILER_DSN`, os e-mails são descartados (o sininho continua funcionando). Um e-mail que falha é tentado de novo 3 vezes; depois disso fica na fila `failed`. Para ver e reenviar: `docker compose exec worker php bin/console messenger:failed:show` e `messenger:failed:retry`.

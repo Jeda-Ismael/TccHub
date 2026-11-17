@@ -2338,6 +2338,36 @@ button.auth-submit:focus-visible {
   color: var(--auth-text);
 }
 
+/* "Esqueci minha senha" e textos de apoio do cartão de login */
+.auth-forgot {
+  margin: -0.4rem 0 1rem;
+  text-align: right;
+  font-size: 0.85rem;
+}
+
+.auth-forgot a,
+.auth-error a,
+.auth-note button.link-button {
+  color: var(--auth-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-forgot a:hover {
+  color: var(--auth-text);
+}
+
+.auth-note {
+  margin: 0;
+  color: var(--auth-muted);
+  font-size: 0.92rem;
+}
+
+.auth-note button.link-button {
+  font-size: inherit;
+}
+
 .auth-loading {
   min-height: 100vh;
   display: flex;

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dto\ForgotPasswordRequest;
 use App\Dto\RegisterRequest;
+use App\Dto\ResetPasswordRequest;
 use App\Dto\UserView;
 use App\Entity\User;
+use App\Service\PasswordReset;
 use App\Service\UserManager;
 use Lexik\Bundle\JWTAuthenticationBundle\Security\Http\Authentication\AuthenticationSuccessHandler;
 use OpenApi\Attributes as OA;
@@ -48,6 +51,43 @@ final class AuthController extends AbstractController
         $response->setStatusCode(Response::HTTP_CREATED);
 
         return $response;
+    }
+
+    /**
+     * "Esqueci minha senha": manda o link por e-mail. Responde 202 mesmo se o
+     * e-mail não existir, para não revelar quem tem conta.
+     */
+    #[Route('/auth/forgot-password', name: 'api_auth_forgot_password', methods: ['POST'])]
+    public function forgotPassword(
+        #[MapRequestPayload] ForgotPasswordRequest $payload,
+        Request $request,
+        PasswordReset $passwordReset,
+        #[Autowire(service: 'limiter.password_reset')] RateLimiterFactory $limiter,
+    ): JsonResponse {
+        $key = ($request->getClientIp() ?? 'unknown').'|'.mb_strtolower(trim($payload->email));
+        $limit = $limiter->create($key)->consume();
+        if (!$limit->isAccepted()) {
+            throw new TooManyRequestsHttpException($limit->getRetryAfter()->getTimestamp() - time(), 'Muitos pedidos de troca de senha. Tente novamente em alguns minutos.');
+        }
+
+        $passwordReset->request($payload->email);
+
+        return $this->json(
+            ['message' => 'Se o e-mail estiver cadastrado, você vai receber um link para trocar a senha.'],
+            Response::HTTP_ACCEPTED,
+        );
+    }
+
+    /** Troca a senha com o link do e-mail e já entra (mesma resposta do login). */
+    #[Route('/auth/reset-password', name: 'api_auth_reset_password', methods: ['POST'])]
+    public function resetPassword(
+        #[MapRequestPayload] ResetPasswordRequest $payload,
+        PasswordReset $passwordReset,
+        AuthenticationSuccessHandler $authenticationSuccess,
+    ): Response {
+        $user = $passwordReset->reset($payload->token, $payload->password);
+
+        return $authenticationSuccess->handleAuthenticationSuccess($user);
     }
 
     #[Route('/me', name: 'api_me', methods: ['GET'])]

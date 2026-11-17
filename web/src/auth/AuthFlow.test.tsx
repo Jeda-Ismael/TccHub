@@ -8,6 +8,8 @@ import { Layout } from '../components/Layout';
 import { Dashboard } from '../pages/Dashboard';
 import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
+import { ForgotPassword } from '../pages/auth/ForgotPassword';
+import { ResetPassword } from '../pages/auth/ResetPassword';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authResponse, mockApi as baseMockApi } from '../test/mockApi';
 
@@ -24,6 +26,8 @@ function renderApp(initialPath: string) {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route element={<Layout />}>
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Dashboard />} />
@@ -159,5 +163,78 @@ describe('fluxo de autenticação', () => {
       email: 'bruna@hubtcc.dev',
       password: 'senha-forte',
     });
+  });
+
+  it('pede o link de troca de senha a partir do login', async () => {
+    const calls = mockApi((config) => (config.url === '/auth/forgot-password' ? { status: 202, data: {} } : { status: 401 }));
+    const user = userEvent.setup();
+    renderApp('/login');
+
+    await user.click(await screen.findByRole('link', { name: 'Esqueci minha senha' }));
+    await user.type(screen.getByLabelText('E-mail'), 'olga@hubtcc.dev');
+    await user.click(screen.getByRole('button', { name: 'Enviar link' }));
+
+    expect(await screen.findByRole('heading', { name: 'Confira seu e-mail' })).toBeInTheDocument();
+    expect(JSON.parse(calls.find((c) => c.url === '/auth/forgot-password')!.data)).toEqual({ email: 'olga@hubtcc.dev' });
+
+    await user.click(screen.getByRole('button', { name: 'peça de novo' }));
+    expect(screen.getByRole('heading', { name: 'Esqueci minha senha' })).toBeInTheDocument();
+  });
+
+  it('mostra o erro da API ao pedir o link', async () => {
+    mockApi((config) =>
+      config.url === '/auth/forgot-password' ? { status: 429, data: { statusCode: 429, message: 'Muitos pedidos de troca de senha.' } } : { status: 401 },
+    );
+    const user = userEvent.setup();
+    renderApp('/forgot-password');
+
+    await user.type(await screen.findByLabelText('E-mail'), 'olga@hubtcc.dev');
+    await user.click(screen.getByRole('button', { name: 'Enviar link' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Muitos pedidos de troca de senha.');
+  });
+
+  it('troca a senha pelo link do e-mail e já entra', async () => {
+    const calls = mockApi((config) =>
+      config.url === '/auth/reset-password' ? { status: 200, data: authResponse(['ADVISOR'], 'token-novo', 'Olga') } : { status: 401 },
+    );
+    const user = userEvent.setup();
+    renderApp('/reset-password?token=abc123');
+
+    await user.type(await screen.findByLabelText('Nova senha'), 'nova-senha-forte');
+    await user.type(screen.getByLabelText('Repita a senha'), 'outra-senha');
+    await user.click(screen.getByRole('button', { name: 'Salvar e entrar' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('As duas senhas não são iguais.');
+
+    await user.clear(screen.getByLabelText('Repita a senha'));
+    await user.type(screen.getByLabelText('Repita a senha'), 'nova-senha-forte');
+    await user.click(screen.getByRole('button', { name: 'Salvar e entrar' }));
+
+    expect(await screen.findByText('Tela do orientador')).toBeInTheDocument();
+    expect(JSON.parse(calls.find((c) => c.url === '/auth/reset-password')!.data)).toEqual({ token: 'abc123', password: 'nova-senha-forte' });
+  });
+
+  it('com link vencido, oferece pedir outro', async () => {
+    mockApi((config) =>
+      config.url === '/auth/reset-password'
+        ? { status: 422, data: { statusCode: 422, message: 'Este link de troca de senha é inválido ou expirou. Peça um novo.' } }
+        : { status: 401 },
+    );
+    const user = userEvent.setup();
+    renderApp('/reset-password?token=velho');
+
+    await user.type(await screen.findByLabelText('Nova senha'), 'nova-senha-forte');
+    await user.type(screen.getByLabelText('Repita a senha'), 'nova-senha-forte');
+    await user.click(screen.getByRole('button', { name: 'Salvar e entrar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('expirou');
+    expect(screen.getByRole('link', { name: 'Pedir um novo link' })).toHaveAttribute('href', '/forgot-password');
+  });
+
+  it('sem token no endereço, explica e oferece pedir outro link', async () => {
+    mockApi(() => ({ status: 401 }));
+    renderApp('/reset-password');
+
+    expect(await screen.findByRole('heading', { name: 'Link incompleto' })).toBeInTheDocument();
   });
 });
