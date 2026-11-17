@@ -2,7 +2,7 @@
 
 Documento de referência para a migração do backend NestJS/Prisma/MySQL para Symfony/Doctrine/PostgreSQL. Define **o que** será construído e **por quê**, antes de escrever código.
 
-> Status: decisões fechadas · Fases 0 a 6 concluídas (Fase 6 sem e-mail) · Versão 8 · 2026-10
+> Status: decisões fechadas · Fases 0 a 7 concluídas (Fase 6 sem e-mail) · Versão 9 · 2026-10
 
 ---
 
@@ -342,7 +342,7 @@ Também existem as tabelas `refresh_tokens` (do bundle de refresh) e `messenger_
 - **`tccs.final_grade`** guarda a nota da última defesa aprovada, para facilitar listagem e repositório.
 - **Documento atual** é a versão mais alta em `tcc_documents` (não há `current_document_id` em `tccs`, para evitar chave estrangeira circular).
 - **Defesa** nasce sem `scheduled_at` quando o TCC entra em `AWAITING_DEFENSE` e recebe data no agendamento.
-- **`search_vector`** (busca do repositório) entra na Fase 7: coluna `tsvector` gerada a partir de título, resumo, palavras-chave e áreas (pesos A/B/C), com índice GIN.
+- **Busca do repositório** (Fase 7): tabela `tcc_search (tcc_id, document tsvector)` com índice GIN, só com os TCCs publicados. Fica fora das entidades (`schema_filter` no `doctrine.yaml`) porque o Doctrine não conhece `tsvector`; quem mantém é `App\Search\RepositoryIndex`. Não é coluna gerada porque palavras-chave e áreas estão em outras tabelas.
 - **Índices:** `tccs(student_id)`, `tccs(advisor_id)`, `tccs(status)`, `board_members(evaluator_id)`, `notifications(user_id, read_at)`, `submission_periods(type, start_date, end_date)`. Sem índice GIN em `users.roles`: a tabela é pequena e o Doctrine não mapeia esse tipo de índice.
 - **CHECKs no banco** (além das regras nas entidades): notas entre 0 e 10, `end_date > start_date` nos períodos, `settings` com linha única (`id = 1`) e tamanho de banca coerente. A migration já insere as configurações padrão.
 - **`UNIQUE(tcc_id, evaluator_id)`** em `board_members` e **`UNIQUE(tcc_id, version)`** em `tcc_documents`.
@@ -497,7 +497,8 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 | `DECISION_PENDING` | Média abaixo do mínimo | Todos com papel de coordenação, inclusive quem deu a última nota (é uma tarefa nova) |
 | `TCC_APPROVED` / `TCC_REJECTED` | Estado final | Aluno, orientador |
 | `GRADES_PENDING` | Horário da defesa chegou | *Adiado (precisa do agendador, entra com o e-mail)* |
-| `PUBLICATION_REQUESTED` | Aluno autorizou e o TCC está aprovado | Coordenação *(Fase 7)* |
+| `PUBLICATION_REQUESTED` / `PUBLICATION_WITHDRAWN` | Aluno autorizou / retirou a autorização de um TCC publicado | Coordenação |
+| `TCC_PUBLISHED` / `TCC_UNPUBLISHED` | Coordenação publicou / tirou do repositório | Aluno |
 
 **API:** `GET /api/notifications[?unread=1]` (30 mais recentes + `unreadCount`), `GET /api/notifications/unread-count`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`. Cada aviso traz `as`: o papel com que o destinatário abre o TCC (aluno, orientador, avaliador ou coordenação), usado pelo frontend para ir à tela certa.
 
@@ -583,7 +584,7 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 | 4 · TCC até a banca ✅ | Workflow, upload com versões, banca (tamanho/conflito), pareceres | Fluxo até `AWAITING_DEFENSE` pelo frontend (testado de ponta a ponta no navegador) |
 | 5 · Defesa ✅ | Agendamento, notas, fechamento, decisão da coordenação | Fluxo completo até `APPROVED` e o caminho de reprovação (testado no navegador até Aprovado) |
 | 6 · Notificações ✅ (sem e-mail) | Sininho: avisos gravados junto com cada ação, API e contador no frontend. E-mail, `worker` e lembrete ficaram no backlog | Avisos certos para cada papel; clique leva ao TCC (testado no navegador) |
-| 7 · Repositório | Autorização, publicação, busca full-text, download | Busca por palavra-chave retorna TCCs publicados |
+| 7 · Repositório ✅ | Autorização, publicação, busca full-text, download | Busca em português e sem acento; só TCCs publicados (testado no navegador) |
 | 8 · Corte | `make demo`, remover NestJS, `frontend/` → `web/`, README | Repositório só com Symfony; cobertura ≥ 85% |
 
 Os testes são escritos **em cada fase** e não ficam para o final. Cada fase só termina com `make qa` verde.
@@ -633,6 +634,20 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 - **Notas às cegas** até a defesa fechar: cada avaliador vê só a própria (mesmo quem também é coordenação); a coordenação de fora da banca acompanha; aluno e orientador veem tudo no resultado.
 - **Concorrência:** `TccLocker` centraliza "travar e recarregar" (banca, defesa e notas) para todas as ações do TCC.
 - **Horários:** a API manda as datas do TCC no fuso da instituição e a tela mostra exatamente esse horário (`frontend/src/utils/dates.ts`), sem converter para o fuso do navegador. O campo de agendamento usa `datetime-local`, interpretado no fuso da instituição.
+
+## 14.4 Notas da Fase 7 (repositório)
+
+| Ação | Quem | Quando |
+|------|------|--------|
+| Autorizar / retirar (`PUT /api/tcc/{id}/publication-authorization`, `{authorized}`) | Aluno autor | TCC `APPROVED`. Retirar tira do repositório na hora |
+| Publicar / tirar (`POST` / `DELETE /api/tcc/{id}/publish`) | Coordenação | TCC `APPROVED`; publicar exige a autorização |
+| Buscar (`GET /api/repository?q=&area=&keyword=&year=&page=`) | Qualquer usuário logado | Só publicados; 12 por página; devolve também os anos disponíveis |
+| Ver (`GET /api/repository/{id}`) | Qualquer usuário logado | 404 se não estiver publicado |
+
+- **Busca:** configuração `pt_unaccent` (dicionário português + `unaccent`): "fraude" acha "fraudes" e "transacoes" acha "transações". Pesos: título (A) > palavras-chave e áreas (B) > resumo (C) > aluno e orientador (D). Usa `websearch_to_tsquery`, então aspas e `-palavra` funcionam. Sem texto, ordena pelos publicados mais recentes.
+- **Índice:** atualizado ao publicar, tirar do ar ou retirar a autorização (na mesma transação, via `TccLocker`) e refeito por completo quando a coordenação renomeia uma área ou palavra-chave.
+- **O que é público no repositório:** título, resumo, autor, orientador, áreas, palavras-chave, nota final, data de publicação e o PDF final (link assinado de 5 min). Pareceres, notas por avaliador, histórico, defesa e versões anteriores continuam restritos.
+- **Ano** = ano da publicação, no fuso da instituição.
 
 ## 15. Backlog (fora do escopo)
 

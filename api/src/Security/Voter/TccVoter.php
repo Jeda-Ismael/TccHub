@@ -31,10 +31,12 @@ final class TccVoter extends Voter
     public const SCHEDULE_DEFENSE = 'TCC_SCHEDULE_DEFENSE';
     public const GRADE_DEFENSE = 'TCC_GRADE_DEFENSE';
     public const DECIDE = 'TCC_DECIDE';
+    public const AUTHORIZE_PUBLICATION = 'TCC_AUTHORIZE_PUBLICATION';
+    public const PUBLISH = 'TCC_PUBLISH';
 
     public const ATTRIBUTES = [
         self::VIEW, self::EDIT, self::UPLOAD, self::SUBMIT, self::ADVISOR_REVIEW, self::EVALUATE, self::MANAGE_BOARD,
-        self::SCHEDULE_DEFENSE, self::GRADE_DEFENSE, self::DECIDE,
+        self::SCHEDULE_DEFENSE, self::GRADE_DEFENSE, self::DECIDE, self::AUTHORIZE_PUBLICATION, self::PUBLISH,
     ];
 
     protected function supports(string $attribute, mixed $subject): bool
@@ -72,6 +74,9 @@ final class TccVoter extends Voter
                 && TccStatus::AwaitingDefense === $subject->getStatus()
                 && true === $subject->getCurrentDefense()?->isScheduled(),
             self::DECIDE => $isCoordination && TccStatus::AwaitingDecision === $subject->getStatus(),
+            // Repositório: o aluno autoriza (ou retira) e a coordenação publica (ou tira do ar)
+            self::AUTHORIZE_PUBLICATION => $isAuthor && TccStatus::Approved === $subject->getStatus(),
+            self::PUBLISH => $isCoordination && TccStatus::Approved === $subject->getStatus(),
             default => false,
         };
     }

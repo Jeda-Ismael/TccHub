@@ -19,6 +19,8 @@ import { UsersManagement } from './pages/coordination/UsersManagement';
 import { Catalogs } from './pages/coordination/Catalogs';
 import { Periods } from './pages/coordination/Periods';
 import { Settings } from './pages/coordination/Settings';
+import { RepositorySearch } from './pages/repository/RepositorySearch';
+import { RepositoryDetail } from './pages/repository/RepositoryDetail';
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,9 @@ export function App() {
             <Route element={<Layout />}>
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Dashboard />} />
+                {/* Repositório: qualquer pessoa logada */}
+                <Route path="/repository" element={<RepositorySearch />} />
+                <Route path="/repository/:id" element={<RepositoryDetail />} />
               </Route>
 
               <Route element={<ProtectedRoute allow={['STUDENT']} />}>

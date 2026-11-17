@@ -4,6 +4,7 @@ import { TccInput, useCreateTcc, useKeywords, useSubmitTcc, useTcc, useTccs, use
 import { Tcc, TccStatus } from '../../api/types';
 import { BoardList } from '../../components/BoardList';
 import { DefenseSection } from '../../components/DefenseSection';
+import { PublicationCard } from '../../components/PublicationCard';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
@@ -68,6 +69,7 @@ function StudentTcc({ tccId, onStartNew }: { tccId: string; onStartNew?: () => v
 
       {tcc.permissions.edit && <TccForm tcc={tcc} />}
       {(tcc.permissions.upload || tcc.permissions.submit) && <UploadAndSubmit tcc={tcc} />}
+      <PublicationCard tcc={tcc} />
       <DefenseSection tcc={tcc} />
       {roundFinished && <BoardList board={tcc.board} title="Pareceres da banca" />}
       <StatusHistoryTimeline entries={tcc.statusHistory} />

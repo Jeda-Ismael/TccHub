@@ -19,8 +19,6 @@ use App\Security\Voter\TccVoter;
 use App\Service\PeriodChecker;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\UriSigner;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -33,12 +31,9 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 final class TccView implements ResetInterface
 {
-    private const DOWNLOAD_LINK_TTL = 300;
-
     public function __construct(
         private readonly AuthorizationCheckerInterface $authorization,
-        private readonly UrlGeneratorInterface $urls,
-        private readonly UriSigner $signer,
+        private readonly DocumentLink $links,
         private readonly PeriodChecker $periods,
         private readonly ClockInterface $clock,
         #[Autowire(param: 'app.timezone')] private readonly string $timezone,
@@ -108,6 +103,8 @@ final class TccView implements ResetInterface
                 'gradeDefense' => $this->authorization->isGranted(TccVoter::GRADE_DEFENSE, $tcc)
                     && true === $tcc->getCurrentDefense()?->hasStartedAt($this->clock->now()),
                 'decide' => $this->authorization->isGranted(TccVoter::DECIDE, $tcc),
+                'authorizePublication' => $this->authorization->isGranted(TccVoter::AUTHORIZE_PUBLICATION, $tcc),
+                'publish' => $this->authorization->isGranted(TccVoter::PUBLISH, $tcc),
             ],
         ];
     }
@@ -189,17 +186,12 @@ final class TccView implements ResetInterface
     /** @return array<string, mixed> */
     private function document(TccDocument $document): array
     {
-        $url = $this->urls->generate('api_tcc_document_download', [
-            'id' => $document->getTcc()->getId()->toRfc4122(),
-            'version' => $document->getVersion(),
-        ], UrlGeneratorInterface::ABSOLUTE_PATH);
-
         return [
             'version' => $document->getVersion(),
             'originalName' => $document->getOriginalName(),
             'sizeBytes' => $document->getSizeBytes(),
             'uploadedAt' => $this->date($document->getUploadedAt()),
-            'downloadUrl' => $this->signer->sign($url, new \DateTimeImmutable('+'.self::DOWNLOAD_LINK_TTL.' seconds')),
+            'downloadUrl' => $this->links->for($document),
         ];
     }
 

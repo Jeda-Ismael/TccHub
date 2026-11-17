@@ -7,6 +7,7 @@ namespace App\Service;
 use App\Entity\Keyword;
 use App\Entity\ThematicArea;
 use App\Exception\DomainRuleViolation;
+use App\Search\RepositoryIndex;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -19,8 +20,10 @@ final class CatalogManager
         Keyword::class => ['singular' => 'palavra-chave', 'join' => 'tcc_keywords', 'column' => 'keyword_id'],
     ];
 
-    public function __construct(private readonly EntityManagerInterface $em)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly RepositoryIndex $index,
+    ) {
     }
 
     /**
@@ -65,8 +68,20 @@ final class CatalogManager
     public function rename(ThematicArea|Keyword $item, string $name): void
     {
         $this->assertNameIsFree($item::class, $name, $item);
-        $item->rename($name);
-        $this->em->flush();
+        $meta = self::LABELS[$item::class];
+
+        // O nome entra na busca do repositório: novo nome e índice mudam juntos
+        $connection = $this->em->getConnection();
+        $connection->beginTransaction();
+        try {
+            $item->rename($name);
+            $this->em->flush();
+            $this->index->syncUsing($meta['join'], $meta['column'], $item->getId()->toRfc4122());
+            $connection->commit();
+        } catch (\Throwable $e) {
+            $connection->rollBack();
+            throw $e;
+        }
     }
 
     /** Não apaga o que está em uso: o TCC perderia a classificação sem ninguém perceber. */

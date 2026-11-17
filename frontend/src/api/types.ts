@@ -89,6 +89,8 @@ export interface TccPermissions {
   scheduleDefense: boolean;
   gradeDefense: boolean;
   decide: boolean;
+  authorizePublication: boolean;
+  publish: boolean;
 }
 
 export type DefenseOutcome = 'PENDING' | 'PASSED' | 'FAILED';
@@ -195,7 +197,10 @@ export type NotificationType =
   | 'DECISION_PENDING'
   | 'TCC_APPROVED'
   | 'TCC_REJECTED'
-  | 'PUBLICATION_REQUESTED';
+  | 'PUBLICATION_REQUESTED'
+  | 'PUBLICATION_WITHDRAWN'
+  | 'TCC_PUBLISHED'
+  | 'TCC_UNPUBLISHED';
 
 export interface AppNotification {
   id: string;
@@ -212,4 +217,37 @@ export interface AppNotification {
 export interface NotificationList {
   items: AppNotification[];
   unreadCount: number;
+}
+
+// --- Repositório ---
+export interface RepositoryTcc {
+  id: string;
+  title: string;
+  abstract: string;
+  student: { id: string; name: string };
+  advisor: { id: string; name: string } | null;
+  thematicAreas: { id: string; name: string }[];
+  keywords: { id: string; name: string }[];
+  finalGrade: number | null;
+  publishedAt: string;
+}
+
+export interface RepositoryTccDetail extends RepositoryTcc {
+  document: { version: number; originalName: string; sizeBytes: number; downloadUrl: string } | null;
+}
+
+export interface RepositoryPage {
+  items: RepositoryTcc[];
+  total: number;
+  page: number;
+  pageSize: number;
+  years: number[];
+}
+
+export interface RepositoryFilters {
+  q?: string;
+  area?: string;
+  keyword?: string;
+  year?: string;
+  page?: number;
 }
