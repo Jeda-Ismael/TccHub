@@ -1,26 +1,27 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { ReactNode } from 'react';
+import { Outlet } from 'react-router-dom';
 
+// As seções da coordenação ficam no menu lateral do app (components/Layout.tsx)
 export function CoordinationLayout() {
   return (
-    <div>
-      <nav className="nav-tabs">
-        <NavLink to="/coordination" end className={({ isActive }) => (isActive ? 'active' : '')}>
-          TCCs
-        </NavLink>
-        <NavLink to="/coordination/users" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Usuários
-        </NavLink>
-        <NavLink to="/coordination/catalogs" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Áreas e Palavras-chave
-        </NavLink>
-        <NavLink to="/coordination/periods" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Prazos
-        </NavLink>
-        <NavLink to="/coordination/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Configurações
-        </NavLink>
-      </nav>
+    <div className="coord">
       <Outlet />
     </div>
+  );
+}
+
+/** Cabeçalho de cada página da coordenação: título, uma frase do que se faz ali e a ação principal. */
+export function CoordHead({ title, children, actions, aside }: { title: string; children?: ReactNode; actions?: ReactNode; aside?: ReactNode }) {
+  return (
+    <header className="coord-head">
+      <div className="coord-head-text">
+        <h1>
+          {title}
+          {aside && <span className="coord-head-count">{aside}</span>}
+        </h1>
+        {children && <p>{children}</p>}
+      </div>
+      {actions && <div className="coord-head-actions">{actions}</div>}
+    </header>
   );
 }

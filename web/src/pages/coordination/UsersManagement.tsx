@@ -1,6 +1,9 @@
 import { FormEvent, useState } from 'react';
 import { Avatar } from '../../components/Avatar';
-import { SearchIcon } from '../../components/icons';
+import { PlusIcon, SearchIcon } from '../../components/icons';
+import { Drawer } from '../../components/Drawer';
+import { EmptyState } from '../../components/EmptyState';
+import { CoordHead } from './CoordinationLayout';
 import { apiErrorMessage } from '../../api/client';
 import { useCreateUser, useDeleteUser, useSetUserActive, useUpdateUserRoles, useUserPage } from '../../api/hooks';
 import { Pager } from '../../components/Pager';
@@ -54,6 +57,7 @@ export function UsersManagement() {
   const [newPassword, setNewPassword] = useState('');
   const [newRoles, setNewRoles] = useState<Role[]>(['ADVISOR']);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const filtered = data?.items ?? [];
 
@@ -104,6 +108,7 @@ export function UsersManagement() {
       setNewEmail('');
       setNewPassword('');
       setNewRoles(['ADVISOR']);
+      setCreating(false);
     } catch (err) {
       setCreateError(apiErrorMessage(err, 'Não foi possível criar o usuário.'));
     }
@@ -111,14 +116,21 @@ export function UsersManagement() {
 
   return (
     <div>
-      <div className="card">
-        <h2>Usuários</h2>
-        <p className="muted">
-          Um professor pode acumular os papéis de Orientador, Avaliador e Coordenação. Aluno não combina com outros papéis. Novos cadastros
-          entram como Aluno. Quem tem TCC ou parecer não pode ser excluído: desative para tirar o acesso e manter o histórico.
-        </p>
+      <CoordHead
+        title="Usuários"
+        aside={data && data.total > 0 ? String(data.total) : undefined}
+        actions={
+          <button type="button" onClick={() => setCreating(true)}>
+            <PlusIcon />
+            Novo usuário
+          </button>
+        }
+      >
+        Quem tem TCC ou parecer não pode ser excluído: desative para tirar o acesso e manter o histórico.
+      </CoordHead>
 
-        <div className="toolbar">
+      <section className="card card-flush">
+        <div className="toolbar toolbar-pad">
           <div className="search">
             <SearchIcon />
             <input
@@ -150,95 +162,113 @@ export function UsersManagement() {
         </div>
 
         {error && (
-          <p className="error-text" role="alert">
+          <p className="error-text table-error" role="alert">
             {error}
           </p>
         )}
-        {!filtered.length && <p className="muted">Nenhum usuário corresponde à busca.</p>}
 
-        <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>Papéis</th>
-              <th>
-                <span className="visually-hidden">Ações</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((u) => (
-              <tr key={u.id} className={u.active === false ? 'row-inactive' : undefined}>
-                <td>
-                  <span className="cell-person">
-                    <Avatar name={u.name} />
-                    {u.name}
-                    {u.active === false && <span className="status-badge status-DRAFT">Desativado</span>}
-                  </span>
-                </td>
-                <td className="muted">{u.email}</td>
-                <td>
-                  {editing?.id === u.id ? (
-                    <span className="confirm-inline">
-                      <RoleCheckboxes value={editing.roles} onChange={(roles) => setEditing({ id: u.id, roles })} disabled={updateRoles.isPending} />
-                      <button type="button" onClick={saveRoles} disabled={updateRoles.isPending || editing.roles.length === 0}>
-                        Salvar
-                      </button>
-                      <button type="button" className="secondary" onClick={() => setEditing(null)} disabled={updateRoles.isPending}>
-                        Cancelar
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="confirm-inline">
-                      <span className="role-chips">
-                        {u.roles.map((role) => (
-                          <span key={role} className="role-chip">
-                            {ROLE_LABELS[role]}
-                          </span>
-                        ))}
+        {!filtered.length ? (
+          <EmptyState title="Nenhum usuário corresponde à busca.">Tente outro nome, e-mail ou papel.</EmptyState>
+        ) : (
+          <div className="table-wrap">
+            <table className="table users-table">
+              <thead>
+                <tr>
+                  <th>Pessoa</th>
+                  <th>Papéis</th>
+                  <th>Acesso</th>
+                  <th>
+                    <span className="visually-hidden">Ações</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((u) => (
+                  <tr key={u.id} className={u.active === false ? 'row-inactive' : undefined}>
+                    <td>
+                      <span className="cell-person">
+                        <Avatar name={u.name} />
+                        <span className="cell-person-text">
+                          <strong>{u.name}</strong>
+                          <span>{u.email}</span>
+                        </span>
                       </span>
-                      <button type="button" className="secondary" onClick={() => setEditing({ id: u.id, roles: u.roles })}>
-                        Editar
-                      </button>
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {u.id === currentUser?.id ? null : confirmingDeleteId === u.id ? (
-                    <span className="confirm-inline">
-                      Excluir?
-                      <button type="button" className="danger" onClick={() => handleDelete(u)} disabled={deleteUser.isPending}>
-                        Confirmar
-                      </button>
-                      <button type="button" className="secondary" onClick={() => setConfirmingDeleteId(null)}>
-                        Cancelar
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="confirm-inline">
-                      <button type="button" className="secondary" onClick={() => toggleActive(u)} disabled={setActive.isPending}>
-                        {u.active === false ? 'Reativar' : 'Desativar'}
-                      </button>
-                      <button type="button" className="danger" onClick={() => setConfirmingDeleteId(u.id)}>
-                        Excluir
-                      </button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-        {data && <Pager page={data.page} total={data.total} perPage={data.perPage} onChange={setPage} />}
-      </div>
+                    </td>
+                    <td>
+                      {editing?.id === u.id ? (
+                        <span className="roles-editing">
+                          <RoleCheckboxes value={editing.roles} onChange={(roles) => setEditing({ id: u.id, roles })} disabled={updateRoles.isPending} />
+                          <span className="row-actions">
+                            <button type="button" className="small" onClick={saveRoles} disabled={updateRoles.isPending || editing.roles.length === 0}>
+                              Salvar
+                            </button>
+                            <button type="button" className="secondary small" onClick={() => setEditing(null)} disabled={updateRoles.isPending}>
+                              Cancelar
+                            </button>
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="roles-cell">
+                          <span className="role-chips">
+                            {u.roles.map((role) => (
+                              <span key={role} className="role-chip">
+                                {ROLE_LABELS[role]}
+                              </span>
+                            ))}
+                          </span>
+                          <button type="button" className="link-button" onClick={() => setEditing({ id: u.id, roles: u.roles })}>
+                            Editar
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {u.active === false ? <span className="access-pill off">Desativado</span> : <span className="access-pill on">Ativo</span>}
+                    </td>
+                    <td>
+                      {u.id === currentUser?.id ? (
+                        <span className="muted you-tag">Você</span>
+                      ) : confirmingDeleteId === u.id ? (
+                        <span className="row-actions confirming">
+                          <span>Excluir?</span>
+                          <button type="button" className="danger solid small" onClick={() => handleDelete(u)} disabled={deleteUser.isPending}>
+                            Confirmar
+                          </button>
+                          <button type="button" className="secondary small" onClick={() => setConfirmingDeleteId(null)}>
+                            Cancelar
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="row-actions">
+                          <button type="button" className="secondary small" onClick={() => toggleActive(u)} disabled={setActive.isPending}>
+                            {u.active === false ? 'Reativar' : 'Desativar'}
+                          </button>
+                          <button type="button" className="ghost-danger small" onClick={() => setConfirmingDeleteId(u.id)}>
+                            Excluir
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data && (
+          <div className="pager-pad">
+            <Pager page={data.page} total={data.total} perPage={data.perPage} onChange={setPage} />
+          </div>
+        )}
+      </section>
 
-      <div className="card">
-        <h3>Criar usuário</h3>
-        <p className="muted">Dá acesso a orientadores, avaliadores e coordenadores que ainda não têm conta.</p>
-        <form onSubmit={handleCreate}>
+      <Drawer
+        open={creating}
+        title="Novo usuário"
+        description="Para orientadores, avaliadores e coordenadores que ainda não têm conta. Alunos se cadastram sozinhos."
+        onClose={() => setCreating(false)}
+      >
+        <form onSubmit={handleCreate} className="drawer-form">
           <div className="form-group">
             <label htmlFor="new-user-name">Nome</label>
             <input id="new-user-name" value={newName} onChange={(e) => setNewName(e.target.value)} required />
@@ -249,22 +279,31 @@ export function UsersManagement() {
           </div>
           <div className="form-group">
             <label htmlFor="new-user-password">Senha inicial</label>
-            <input id="new-user-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
+            <input id="new-user-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} aria-describedby="new-user-password-hint" />
+            <p id="new-user-password-hint" className="field-hint">
+              Pelo menos 8 caracteres. A pessoa pode trocar depois em "Esqueci minha senha".
+            </p>
           </div>
-          <div className="form-group">
-            <label>Papéis</label>
+          <fieldset className="form-group plain-fieldset">
+            <legend>Papéis</legend>
             <RoleCheckboxes value={newRoles} onChange={setNewRoles} />
-          </div>
+            <p className="field-hint">Um professor pode acumular Orientador, Avaliador e Coordenação. Aluno não combina com outros papéis.</p>
+          </fieldset>
           {createError && (
             <p className="error-text" role="alert">
               {createError}
             </p>
           )}
-          <button type="submit" disabled={createUser.isPending || newRoles.length === 0}>
-            Criar usuário
-          </button>
+          <div className="drawer-actions">
+            <button type="button" className="secondary" onClick={() => setCreating(false)}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={createUser.isPending || newRoles.length === 0}>
+              Criar usuário
+            </button>
+          </div>
         </form>
-      </div>
+      </Drawer>
     </div>
   );
 }

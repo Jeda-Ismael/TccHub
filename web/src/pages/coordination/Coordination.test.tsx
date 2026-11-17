@@ -41,7 +41,6 @@ describe('coordenação: TCCs', () => {
     );
 
     expect(await screen.findByRole('link', { name: /Detecção de fraudes/ })).toHaveAttribute('href', '/coordination/tcc/t1');
-    expect(screen.getByRole('link', { name: 'Prazos' })).toBeInTheDocument();
 
     expect(screen.getByText('2 TCCs')).toBeInTheDocument();
     expect(calls[0].params).toMatchObject({ as: 'COORDINATION', page: 1, perPage: 20 });
@@ -171,7 +170,7 @@ describe('coordenação: configurações', () => {
     expect(passing).toHaveValue(6);
     await user.clear(passing);
     await user.type(passing, '7');
-    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
 
     expect(await screen.findByText('Configurações salvas.')).toBeInTheDocument();
     expect(bodyOf(calls, 'put', '/settings')).toEqual({ boardMinSize: 2, boardMaxSize: 3, passingGrade: 7 });
@@ -186,7 +185,7 @@ describe('coordenação: configurações', () => {
     const user = userEvent.setup();
     renderPage(<Settings />);
 
-    await user.click(await screen.findByRole('button', { name: 'Salvar' }));
+    await user.click(await screen.findByRole('button', { name: 'Salvar alterações' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('O mínimo não pode ser maior que o máximo.');
   });
@@ -200,25 +199,30 @@ describe('coordenação: prazos', () => {
     const user = userEvent.setup();
     renderPage(<Periods />);
 
-    expect(await screen.findByText(/Submissão — 2026\/2/)).toBeInTheDocument();
-    expect(screen.getByText('Ativo agora')).toBeInTheDocument();
-    expect(screen.getByText('01/08/2026 até 15/12/2026')).toBeInTheDocument();
+    const list = (await screen.findByRole('heading', { name: 'Janelas de envio e avaliação' })).closest('section')!;
+    expect(await within(list).findByRole('heading', { name: '2026/2' })).toBeInTheDocument();
+    expect(within(list).getByText('Ativo agora')).toBeInTheDocument();
+    expect(within(list).getByText('01/08/2026 até 15/12/2026')).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Tipo'), 'EVALUATION');
-    await user.type(screen.getByLabelText('Rótulo (ex: 2026/1)'), '2027/1');
-    await user.type(screen.getByLabelText('Início'), '2027-02-01');
-    await user.type(screen.getByLabelText('Fim'), '2027-06-30');
-    await user.click(screen.getByRole('button', { name: 'Criar prazo' }));
+    await user.click(screen.getByRole('button', { name: 'Novo prazo' }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo prazo' });
+    await user.click(within(dialog).getByLabelText(/Avaliação/));
+    await user.type(within(dialog).getByLabelText('Rótulo (ex: 2026/1)'), '2027/1');
+    await user.type(within(dialog).getByLabelText('Início'), '2027-02-01');
+    await user.type(within(dialog).getByLabelText('Fim'), '2027-06-30');
+    expect(within(dialog).getByText('150 dias de prazo, contando o primeiro e o último.')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Criar prazo' }));
     await waitFor(() => expect(bodyOf(calls, 'post', '/periods')).toEqual({ type: 'EVALUATION', label: '2027/1', startDate: '2027-02-01', endDate: '2027-06-30' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: 'Editar' }));
+    await user.click(within(list).getByRole('button', { name: 'Editar' }));
     expect(screen.getByRole('heading', { name: 'Editar prazo' })).toBeInTheDocument();
     expect(screen.getByLabelText('Início')).toHaveValue('2026-08-01');
     await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'put' && c.url === '/periods/p1')).toBe(true));
 
-    await user.click(screen.getByRole('button', { name: 'Excluir' }));
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await user.click(within(list).getByRole('button', { name: 'Excluir' }));
+    await user.click(within(list).getByRole('button', { name: 'Confirmar' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'delete' && c.url === '/periods/p1')).toBe(true));
   });
 
@@ -229,13 +233,21 @@ describe('coordenação: prazos', () => {
     const user = userEvent.setup();
     renderPage(<Periods />);
 
-    await user.click(await screen.findByRole('button', { name: 'Editar' }));
-    await user.click(screen.getByRole('button', { name: 'Cancelar edição' }));
-    expect(screen.getByRole('heading', { name: 'Novo prazo' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Excluir' }));
+    const list = (await screen.findByRole('heading', { name: 'Janelas de envio e avaliação' })).closest('section')!;
+    await user.click(await within(list).findByRole('button', { name: 'Editar' }));
+    expect(screen.getByRole('heading', { name: 'Editar prazo' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
+    // Esc também fecha o painel
+    await user.click(screen.getByRole('button', { name: 'Novo prazo' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(within(list).getByRole('button', { name: 'Excluir' }));
+    await user.click(within(list).getByRole('button', { name: 'Cancelar' }));
+
+    await user.click(screen.getByRole('button', { name: 'Novo prazo' }));
     await user.type(screen.getByLabelText('Rótulo (ex: 2026/1)'), 'x');
     await user.type(screen.getByLabelText('Início'), '2027-02-01');
     await user.type(screen.getByLabelText('Fim'), '2027-01-01');
@@ -264,9 +276,9 @@ describe('coordenação: áreas e palavras-chave', () => {
     const user = userEvent.setup();
     renderPage(<Catalogs />);
 
-    expect(await screen.findByText(/usado em 3 TCC\(s\)/)).toBeInTheDocument();
+    expect(await screen.findByText('3 TCCs')).toBeInTheDocument();
     expect(screen.getByText('Nenhuma palavra-chave cadastrada.')).toBeInTheDocument();
-    const areas = screen.getByRole('heading', { name: 'Áreas temáticas' }).parentElement!;
+    const areas = screen.getByRole('heading', { name: 'Áreas temáticas' }).closest('section')!;
     const deleteButtons = within(areas).getAllByRole('button', { name: 'Excluir' });
     expect(deleteButtons[1]).toBeDisabled();
 
@@ -281,7 +293,7 @@ describe('coordenação: áreas e palavras-chave', () => {
     await user.click(within(areas).getByRole('button', { name: 'Salvar' }));
     await waitFor(() => expect(bodyOf(calls, 'put', '/thematic-areas/a1')).toEqual({ name: 'Redes de Computadores' }));
 
-    await user.click(deleteButtons[0]);
+    await user.click(within(areas).getAllByRole('button', { name: 'Excluir' })[0]);
     expect(within(areas).getByText('Excluir "Redes"?')).toBeInTheDocument();
     await user.click(within(areas).getByRole('button', { name: 'Confirmar' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'delete' && c.url === '/thematic-areas/a1')).toBe(true));
@@ -296,7 +308,7 @@ describe('coordenação: áreas e palavras-chave', () => {
     const user = userEvent.setup();
     renderPage(<Catalogs />);
 
-    const keywords = (await screen.findByRole('heading', { name: 'Palavras-chave' })).parentElement!;
+    const keywords = (await screen.findByRole('heading', { name: 'Palavras-chave' })).closest('section')!;
     await within(keywords).findByText('nuvem');
     await user.type(within(keywords).getByPlaceholderText('Nova palavra-chave'), 'nuvem');
     await user.click(within(keywords).getByRole('button', { name: 'Adicionar' }));
@@ -326,7 +338,7 @@ describe('coordenação: áreas e palavras-chave', () => {
     const user = userEvent.setup();
     renderPage(<Catalogs />);
 
-    const keywords = (await screen.findByRole('heading', { name: 'Palavras-chave' })).parentElement!;
+    const keywords = (await screen.findByRole('heading', { name: 'Palavras-chave' })).closest('section')!;
     await user.click(await within(keywords).findByRole('button', { name: 'Excluir' }));
     await user.click(within(keywords).getByRole('button', { name: 'Confirmar' }));
 
@@ -390,6 +402,7 @@ describe('coordenação: usuários', () => {
     await user.click(within(ana).getByRole('button', { name: 'Confirmar' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'delete' && c.url === '/users/u2')).toBe(true));
 
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
     await user.type(screen.getByLabelText('Nome'), 'Novo Professor');
     await user.type(screen.getByLabelText('E-mail'), 'novo@hubtcc.dev');
     await user.type(screen.getByLabelText('Senha inicial'), 'senha-forte');
@@ -434,6 +447,7 @@ describe('coordenação: usuários', () => {
     await user.click(within(ana).getByRole('button', { name: 'Confirmar' }));
     expect(await screen.findByText('Este usuário tem TCCs e não pode ser excluído.')).toHaveAttribute('role', 'alert');
 
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
     await user.type(screen.getByLabelText('Nome'), 'X');
     await user.type(screen.getByLabelText('E-mail'), 'x@hubtcc.dev');
     await user.type(screen.getByLabelText('Senha inicial'), 'senha-forte');

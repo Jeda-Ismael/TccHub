@@ -109,6 +109,7 @@ describe('fluxo de autenticação', () => {
 
     expect(await screen.findByText('Tela do orientador')).toBeInTheDocument();
 
+    await user.click(screen.getByRole('button', { name: 'Conta de Paulo Professor' }));
     await user.selectOptions(screen.getByLabelText('Ver como'), 'COORDINATION');
 
     expect(await screen.findByText('Tela da coordenação')).toBeInTheDocument();
@@ -139,13 +140,14 @@ describe('fluxo de autenticação', () => {
     renderApp('/');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Sair' }));
+    await user.click(await screen.findByRole('button', { name: 'Conta de Paulo Professor' }));
+    await user.click(screen.getByRole('button', { name: 'Sair' }));
 
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument();
     expect(calls.some((c) => c.url === '/auth/logout')).toBe(true);
   });
 
-  it('no celular, o menu da conta mostra nome e papel e permite sair', async () => {
+  it('o menu da conta mostra nome e papel, fecha no Esc e permite sair', async () => {
     const calls = mockApi((config) => (config.url === '/auth/refresh' ? { status: 200, data: authResponse(['STUDENT'], 't', 'Ana Aluna') } : { status: 200 }));
     renderApp('/');
     const user = userEvent.setup();
@@ -157,9 +159,31 @@ describe('fluxo de autenticação', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
     await user.click(toggle);
-    await user.click(screen.getByRole('button', { name: 'Sair da conta' }));
+    expect(screen.getByText('paulo@hubtcc.dev')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Sair' }));
     expect(await screen.findByLabelText('E-mail')).toBeInTheDocument();
     expect(calls.some((c) => c.url === '/auth/logout')).toBe(true);
+  });
+
+  it('menu lateral: seções da coordenação e gaveta do celular', async () => {
+    localStorage.setItem('hubtcc_active_role', 'COORDINATION');
+    mockApi((config) => (config.url === '/auth/refresh' ? { status: 200, data: authResponse(['ADVISOR', 'COORDINATION']) } : { status: 200 }));
+    renderApp('/');
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('link', { name: 'Prazos' })).toHaveAttribute('href', '/coordination/periods');
+    expect(screen.getByRole('link', { name: 'Repositório' })).toBeInTheDocument();
+    // Na coordenação, "Meu painel" seria a lista de TCCs repetida
+    expect(screen.queryByRole('link', { name: 'Meu painel' })).not.toBeInTheDocument();
+
+    const open = screen.getByRole('button', { name: 'Abrir menu' });
+    await user.click(open);
+    expect(open).toHaveAttribute('aria-expanded', 'true');
+    await user.click(screen.getByRole('button', { name: 'Fechar menu' }));
+    expect(open).toHaveAttribute('aria-expanded', 'false');
+    await user.click(open);
+    await user.keyboard('{Escape}');
+    expect(open).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('cadastra um aluno e já entra no sistema', async () => {
