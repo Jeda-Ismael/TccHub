@@ -20,13 +20,16 @@ const bodyOf = (calls: ReturnType<typeof mockApi>, method: string, url: string) 
 
 describe('coordenação: TCCs', () => {
   it('lista todos e filtra por texto e status', async () => {
-    mockApi(() => ({
-      status: 200,
-      data: [
-        makeTcc({ id: 't1', title: 'Detecção de fraudes', status: 'SUBMITTED' }),
-        makeTcc({ id: 't2', title: 'Contagem de veículos', status: 'APPROVED', student: { id: 's2', name: 'Bruno', email: 'b' } }),
-      ],
-    }));
+    const all = [
+      makeTcc({ id: 't1', title: 'Detecção de fraudes', status: 'SUBMITTED' }),
+      makeTcc({ id: 't2', title: 'Contagem de veículos', status: 'APPROVED', student: { id: 's2', name: 'Bruno', email: 'b' } }),
+    ];
+    // A API filtra e pagina; o mock imita o filtro
+    const calls = mockApi((config) => {
+      const { q, status } = config.params ?? {};
+      const data = all.filter((t) => (!q || `${t.title} ${t.student.name}`.toLowerCase().includes(q)) && (!status || t.status === status));
+      return { status: 200, data, headers: { 'x-total-count': String(data.length) } };
+    });
     const user = userEvent.setup();
     renderPage(
       <Routes>
@@ -40,12 +43,34 @@ describe('coordenação: TCCs', () => {
     expect(await screen.findByRole('link', { name: /Detecção de fraudes/ })).toHaveAttribute('href', '/coordination/tcc/t1');
     expect(screen.getByRole('link', { name: 'Prazos' })).toBeInTheDocument();
 
+    expect(screen.getByText('2 TCCs')).toBeInTheDocument();
+    expect(calls[0].params).toMatchObject({ as: 'COORDINATION', page: 1, perPage: 20 });
+
     await user.type(screen.getByPlaceholderText('Buscar por título, aluno ou orientador...'), 'bruno');
-    expect(screen.queryByText('Detecção de fraudes')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Detecção de fraudes')).not.toBeInTheDocument());
     expect(screen.getByText('Contagem de veículos')).toBeInTheDocument();
+    expect(calls[calls.length - 1]?.params).toMatchObject({ q: 'bruno' });
 
     await user.selectOptions(screen.getByRole('combobox'), 'SUBMITTED');
-    expect(screen.getByText('Nenhum TCC corresponde à busca.')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum TCC corresponde à busca.')).toBeInTheDocument();
+  });
+
+  it('pagina a lista quando há mais de 20 TCCs', async () => {
+    const calls = mockApi((config) => {
+      const page = config.params?.page ?? 1;
+      return { status: 200, data: [makeTcc({ id: `t${page}`, title: `TCC da página ${page}` })], headers: { 'x-total-count': '45' } };
+    });
+    const user = userEvent.setup();
+    renderPage(<TccsOverview />);
+
+    expect(await screen.findByText('TCC da página 1')).toBeInTheDocument();
+    expect(screen.getByText('Página 1 de 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+
+    expect(await screen.findByText('TCC da página 2')).toBeInTheDocument();
+    expect(calls[calls.length - 1]?.params).toMatchObject({ page: 2 });
   });
 
   it('sem TCCs', async () => {
@@ -287,12 +312,18 @@ describe('coordenação: usuários', () => {
     { id: 'u1', name: 'Paulo Professor', email: 'paulo@hubtcc.dev', roles: ['COORDINATION'], createdAt: '2026-10-01T00:00:00+00:00' },
     { id: 'u2', name: 'Ana Aluna', email: 'ana@hubtcc.dev', roles: ['STUDENT'], createdAt: '2026-10-01T00:00:00+00:00' },
     { id: 'u3', name: 'Olga Orientadora', email: 'olga@hubtcc.dev', roles: ['ADVISOR'], createdAt: '2026-10-01T00:00:00+00:00' },
+    { id: 'u4', name: 'Rui Antigo', email: 'rui@hubtcc.dev', roles: ['EVALUATOR'], active: false, createdAt: '2026-10-01T00:00:00+00:00' },
   ];
 
   function mockUsers(failWrites = false) {
     return mockApi((config) => {
       if (config.url === '/auth/refresh') return { status: 200, data: authResponse(['COORDINATION']) };
-      if (config.method === 'get') return { status: 200, data: users };
+      if (config.method === 'get') {
+        // A API filtra por papel e texto; o mock imita
+        const { q, role } = config.params ?? {};
+        const data = users.filter((u) => (!role || u.roles.includes(role)) && (!q || `${u.name} ${u.email}`.toLowerCase().includes(q)));
+        return { status: 200, data, headers: { 'x-total-count': String(data.length) } };
+      }
       if (!failWrites) return { status: 200, data: users[1] };
       const messages: Record<string, string> = {
         put: 'Aluno não combina com outros papéis.',
@@ -311,16 +342,17 @@ describe('coordenação: usuários', () => {
 
     expect(await screen.findByText('Ana Aluna')).toBeInTheDocument();
     // Não oferece excluir a própria conta (u1 é o usuário logado no mock)
-    expect(screen.getAllByRole('button', { name: 'Excluir' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Excluir' })).toHaveLength(3);
 
     await user.selectOptions(screen.getByLabelText('Filtrar por papel'), 'ADVISOR');
-    expect(screen.queryByText('Ana Aluna')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Ana Aluna')).not.toBeInTheDocument());
+    expect(calls[calls.length - 1]?.params).toMatchObject({ role: 'ADVISOR', includeInactive: true });
     await user.selectOptions(screen.getByLabelText('Filtrar por papel'), '');
     await user.type(screen.getByPlaceholderText('Buscar por nome ou e-mail...'), 'zzz');
-    expect(screen.getByText('Nenhum usuário corresponde à busca.')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum usuário corresponde à busca.')).toBeInTheDocument();
     await user.clear(screen.getByPlaceholderText('Buscar por nome ou e-mail...'));
 
-    const olga = screen.getByText('Olga Orientadora').closest('tr')!;
+    const olga = (await screen.findByText('Olga Orientadora')).closest('tr')!;
     await user.click(within(olga).getByRole('button', { name: 'Editar' }));
     await user.click(within(olga).getByLabelText('Avaliador'));
     await user.click(within(olga).getByRole('button', { name: 'Salvar' }));
@@ -338,6 +370,22 @@ describe('coordenação: usuários', () => {
     await waitFor(() =>
       expect(bodyOf(calls, 'post', '/users')).toEqual({ name: 'Novo Professor', email: 'novo@hubtcc.dev', password: 'senha-forte', roles: ['ADVISOR'] }),
     );
+  });
+
+  it('desativa e reativa usuários', async () => {
+    const calls = mockUsers();
+    const user = userEvent.setup();
+    renderPage(<UsersManagement />, { auth: true });
+
+    const rui = (await screen.findByText('Rui Antigo')).closest('tr')!;
+    expect(within(rui).getByText('Desativado')).toBeInTheDocument();
+    await user.click(within(rui).getByRole('button', { name: 'Reativar' }));
+    await waitFor(() => expect(bodyOf(calls, 'put', '/users/u4/active')).toEqual({ active: true }));
+    expect(await screen.findByText('Rui Antigo foi reativado.')).toBeInTheDocument();
+
+    const olga = screen.getByText('Olga Orientadora').closest('tr')!;
+    await user.click(within(olga).getByRole('button', { name: 'Desativar' }));
+    await waitFor(() => expect(bodyOf(calls, 'put', '/users/u3/active')).toEqual({ active: false }));
   });
 
   it('mostra os erros da API', async () => {

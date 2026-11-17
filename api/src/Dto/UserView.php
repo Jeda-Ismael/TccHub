@@ -13,7 +13,7 @@ use App\Enum\Role;
 final class UserView
 {
     /**
-     * @return array{id: string, name: string, email: string, roles: list<string>, createdAt: string}
+     * @return array{id: string, name: string, email: string, roles: list<string>, active: bool, createdAt: string}
      */
     public static function from(User $user): array
     {
@@ -22,6 +22,7 @@ final class UserView
             'name' => $user->getName(),
             'email' => $user->getEmail(),
             'roles' => array_map(static fn (Role $role): string => $role->apiName(), $user->getRoleList()),
+            'active' => $user->isActive(),
             'createdAt' => $user->getCreatedAt()->format(\DATE_ATOM),
         ];
     }

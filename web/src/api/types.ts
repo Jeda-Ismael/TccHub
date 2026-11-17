@@ -33,7 +33,17 @@ export interface UserSummary {
 /** Usuário como a coordenação vê (e como /me e o login devolvem). */
 export interface User extends UserSummary {
   roles: Role[];
+  /** false = desativado pela coordenação (não entra mais, histórico mantido). */
+  active?: boolean;
   createdAt: string;
+}
+
+/** Uma página de lista (o total vem no cabeçalho X-Total-Count da API). */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  perPage: number;
 }
 
 export interface AuthResponse {

@@ -435,9 +435,10 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 
 | Método | Rota | Acesso |
 |--------|------|--------|
-| GET | `/users?role=` ✎ | autenticado. Filtra quem *tem* o papel |
+| GET | `/users?role=&q=&page=&perPage=&includeInactive=` ✎ | autenticado. Filtra quem *tem* o papel e só os ativos. Coordenação: lista todos, busca por nome/e-mail, pagina e, com `includeInactive`, vê os desativados no filtro por papel |
 | POST · DELETE `/{id}` | `/users` | Coordenação |
 | PUT | `/users/{id}/roles` ✎ (antes `PATCH …/role`) | Coordenação, body `{roles: [...]}` |
+| PUT | `/users/{id}/active` ✱ | Coordenação, body `{active}`. Desativar tira o acesso na hora e mantém o histórico |
 | CRUD | `/thematic-areas`, `/keywords`, `/periods` | leitura: todos · escrita: Coordenação |
 | GET · PUT | `/settings` ✱ | leitura: todos · escrita: Coordenação |
 
@@ -445,7 +446,7 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 
 | Método | Rota | Acesso |
 |--------|------|--------|
-| GET | `/tcc?as=&status=&page=` ✎ | autenticado. `as` = papel ativo |
+| GET | `/tcc?as=&status=&q=&page=&perPage=` ✎ | autenticado. `as` = papel ativo; `q` busca no título e nos nomes do aluno e do orientador |
 | POST | `/tcc` | Aluno |
 | GET · PATCH | `/tcc/{id}` | `TCC_VIEW` / `TCC_EDIT` |
 | POST | `/tcc/{id}/document` | `TCC_UPLOAD` |
@@ -471,6 +472,8 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 | GET | `/notifications?unread=1` ✱ | autenticado |
 | GET | `/notifications/unread-count` ✱ | autenticado (usado no polling) |
 | POST | `/notifications/{id}/read` ✱ · `/notifications/read-all` ✱ | autenticado |
+
+**Paginação:** com `page` (e `perPage`, padrão 20, máximo 100), as listas de TCCs e de usuários vêm por página. O corpo continua sendo um array; o total vai no cabeçalho `X-Total-Count` (e `X-Page`, `X-Per-Page`). Sem `page`, a lista vem inteira.
 
 **Erros:** `{"statusCode": 4xx, "message": "…"}`, igual ao NestJS. Validação devolve `message: [...]`. Transição inválida do workflow vira **409** com a mensagem do guard.
 

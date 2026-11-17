@@ -6,6 +6,7 @@ namespace App\Repository;
 
 use App\Entity\User;
 use App\Enum\Role;
+use App\Http\Pagination;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
@@ -27,10 +28,25 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         return $this->findOneBy(['email' => mb_strtolower(trim($email))]);
     }
 
-    /** @return list<User> */
-    public function findByRole(?Role $role): array
+    /**
+     * Usuários de um papel (ou todos), por nome. Com `$onlyActive`, deixa de
+     * fora os desativados (ex.: ao escolher orientador ou banca).
+     *
+     * @return list<User>
+     */
+    public function findByRole(?Role $role, bool $onlyActive = false): array
     {
-        $qb = $this->createQueryBuilder('u')->orderBy('u.name', 'ASC');
+        return $this->search($role, null, $onlyActive, null)['items'];
+    }
+
+    /**
+     * Busca da coordenação: por papel, por nome/e-mail e, com `$pagination`, por página.
+     *
+     * @return array{items: list<User>, total: int}
+     */
+    public function search(?Role $role, ?string $term, bool $onlyActive, ?Pagination $pagination): array
+    {
+        $qb = $this->createQueryBuilder('u')->orderBy('u.name', 'ASC')->addOrderBy('u.id', 'ASC');
         if (null !== $role) {
             // roles é jsonb: o operador @> verifica se o array contém o papel
             $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
@@ -38,19 +54,37 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
                 ['role' => json_encode([$role->value], \JSON_THROW_ON_ERROR)],
             );
             if ([] === $ids) {
-                return [];
+                return ['items' => [], 'total' => 0];
             }
-            $qb->where('u.id IN (:ids)')->setParameter('ids', $ids);
+            $qb->andWhere('u.id IN (:ids)')->setParameter('ids', $ids);
+        }
+        if ($onlyActive) {
+            $qb->andWhere('u.active = true');
+        }
+        $term = null === $term ? '' : trim($term);
+        if ('' !== $term) {
+            $qb->andWhere('(LOWER(u.name) LIKE :term OR u.email LIKE :term)')
+                ->setParameter('term', '%'.addcslashes(mb_strtolower($term), '%_\\').'%');
         }
 
-        /* @var list<User> */
-        return $qb->getQuery()->getResult();
+        if (null === $pagination) {
+            /** @var list<User> $all */
+            $all = $qb->getQuery()->getResult();
+
+            return ['items' => $all, 'total' => \count($all)];
+        }
+
+        $total = (int) (clone $qb)->select('COUNT(u.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+        /** @var list<User> $items */
+        $items = $qb->setFirstResult($pagination->offset())->setMaxResults($pagination->perPage)->getQuery()->getResult();
+
+        return ['items' => $items, 'total' => $total];
     }
 
-    public function countWithRole(Role $role): int
+    public function countWithRole(Role $role, bool $onlyActive = false): int
     {
         return (int) $this->getEntityManager()->getConnection()->fetchOne(
-            'SELECT COUNT(*) FROM users WHERE roles @> :role::jsonb',
+            'SELECT COUNT(*) FROM users WHERE roles @> :role::jsonb'.($onlyActive ? ' AND active' : ''),
             ['role' => json_encode([$role->value], \JSON_THROW_ON_ERROR)],
         );
     }

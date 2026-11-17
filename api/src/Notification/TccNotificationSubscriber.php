@@ -63,7 +63,7 @@ final class TccNotificationSubscriber implements EventSubscriberInterface
                 \sprintf('A banca aprovou "%s". Falta a sua revisão final.', $title)),
             TccStatus::AwaitingDefense => $this->awaitingDefense($tcc, 'allow_new_defense' === $transition->getName()),
             // Tarefa nova: avisa também o coordenador que estava na banca e deu a última nota
-            TccStatus::AwaitingDecision => $this->notifier->notify(NotificationType::DecisionPending, $tcc, $this->users->findByRole(Role::Coordination),
+            TccStatus::AwaitingDecision => $this->notifier->notify(NotificationType::DecisionPending, $tcc, $this->users->findByRole(Role::Coordination, onlyActive: true),
                 'Decisão pendente sobre uma defesa',
                 trim(\sprintf('"%s" (%s) ficou abaixo da nota mínima. %s', $title, $student->getName(), $comment ?? '')),
                 skipActor: false),

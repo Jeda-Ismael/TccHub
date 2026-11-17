@@ -6,9 +6,11 @@ namespace App\Controller;
 
 use App\Dto\ChangeRolesRequest;
 use App\Dto\CreateUserRequest;
+use App\Dto\SetActiveRequest;
 use App\Dto\UserView;
 use App\Entity\User;
 use App\Enum\Role;
+use App\Http\Pagination;
 use App\Repository\UserRepository;
 use App\Service\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -35,11 +37,19 @@ final class UserController extends AbstractController
 
     /**
      * Qualquer usuário logado lista por papel (ex.: aluno escolhendo orientador),
-     * vendo só nome e e-mail. Só a coordenação lista todos e vê os papéis.
+     * vendo só nome e e-mail e só os ativos. Só a coordenação lista todos, vê os
+     * papéis e os desativados (`includeInactive` com `role`), busca por nome/e-mail
+     * (`q`) e pagina (`page`).
      */
     #[Route('', name: 'api_users_list', methods: ['GET'])]
-    public function list(#[CurrentUser] User $currentUser, #[MapQueryParameter] ?string $role = null): JsonResponse
-    {
+    public function list(
+        #[CurrentUser] User $currentUser,
+        #[MapQueryParameter] ?string $role = null,
+        #[MapQueryParameter] ?string $q = null,
+        #[MapQueryParameter] ?int $page = null,
+        #[MapQueryParameter] ?int $perPage = null,
+        #[MapQueryParameter] bool $includeInactive = false,
+    ): JsonResponse {
         $isCoordination = $currentUser->hasRole(Role::Coordination);
         if (null === $role && !$isCoordination) {
             throw $this->createAccessDeniedException();
@@ -50,13 +60,28 @@ final class UserController extends AbstractController
         } catch (\ValueError) {
             throw new BadRequestHttpException(\sprintf('Papel desconhecido: "%s".', $role));
         }
+        $pagination = Pagination::fromQuery($page, $perPage);
 
-        $users = $this->users->findByRole($filter);
+        // Listas por papel servem para escolher alguém: desativados ficam de fora,
+        // a não ser na gestão de usuários da coordenação (includeInactive)
+        $onlyActive = null !== $filter && !($isCoordination && $includeInactive);
+        $result = $this->users->search($filter, $isCoordination ? $q : null, $onlyActive, $isCoordination ? $pagination : null);
 
-        return $this->json(array_map(
+        return Pagination::respond(array_map(
             static fn (User $user): array => $isCoordination ? UserView::from($user) : UserView::summary($user),
-            $users,
-        ));
+            $result['items'],
+        ), $result['total'], $isCoordination ? $pagination : null);
+    }
+
+    /** Desativa (`{"active": false}`) ou reativa um usuário. */
+    #[Route('/{id}/active', name: 'api_users_set_active', requirements: ['id' => Requirement::UUID], methods: ['PUT'])]
+    #[IsGranted('ROLE_COORDINATION')]
+    public function setActive(string $id, #[CurrentUser] User $currentUser, #[MapRequestPayload] SetActiveRequest $payload): JsonResponse
+    {
+        $user = $this->find($id);
+        $this->manager->setActive($user, (bool) $payload->active, $currentUser);
+
+        return $this->json(UserView::from($user));
     }
 
     #[Route('', name: 'api_users_create', methods: ['POST'])]

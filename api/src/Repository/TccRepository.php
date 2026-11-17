@@ -8,6 +8,7 @@ use App\Entity\Tcc;
 use App\Entity\User;
 use App\Enum\Role;
 use App\Enum\TccStatus;
+use App\Http\Pagination;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -37,17 +38,19 @@ class TccRepository extends ServiceEntityRepository
 
     /**
      * TCCs que o usuário vê com um papel: os próprios (aluno), os orientados,
-     * os das bancas de que participa, ou todos (coordenação).
+     * os das bancas de que participa, ou todos (coordenação). `$term` busca no
+     * título e nos nomes do aluno e do orientador; com `$pagination`, por página.
      *
-     * @return list<Tcc>
+     * @return array{items: list<Tcc>, total: int}
      */
-    public function findVisibleAs(User $user, Role $as, ?TccStatus $status = null): array
+    public function findVisibleAs(User $user, Role $as, ?TccStatus $status = null, ?string $term = null, ?Pagination $pagination = null): array
     {
         $qb = $this->createQueryBuilder('t')
             ->addSelect('s', 'a')
             ->join('t.student', 's')
             ->leftJoin('t.advisor', 'a')
-            ->orderBy('t.updatedAt', 'DESC');
+            ->orderBy('t.updatedAt', 'DESC')
+            ->addOrderBy('t.id', 'ASC');
 
         match ($as) {
             Role::Student => $qb->andWhere('t.student = :user'),
@@ -61,12 +64,24 @@ class TccRepository extends ServiceEntityRepository
         if (null !== $status) {
             $qb->andWhere('t.status = :status')->setParameter('status', $status);
         }
+        $term = null === $term ? '' : trim($term);
+        if ('' !== $term) {
+            $qb->andWhere('(LOWER(t.title) LIKE :term OR LOWER(s.name) LIKE :term OR LOWER(a.name) LIKE :term)')
+                ->setParameter('term', '%'.addcslashes(mb_strtolower($term), '%_\\').'%');
+        }
 
-        /** @var list<Tcc> $tccs */
-        $tccs = $qb->getQuery()->getResult();
+        if (null === $pagination) {
+            /** @var list<Tcc> $tccs */
+            $tccs = $qb->getQuery()->getResult();
+            $total = \count($tccs);
+        } else {
+            $total = (int) (clone $qb)->select('COUNT(t.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+            /** @var list<Tcc> $tccs */
+            $tccs = $qb->setFirstResult($pagination->offset())->setMaxResults($pagination->perPage)->getQuery()->getResult();
+        }
         $this->preloadCollections($tccs);
 
-        return $tccs;
+        return ['items' => $tccs, 'total' => $total];
     }
 
     /**

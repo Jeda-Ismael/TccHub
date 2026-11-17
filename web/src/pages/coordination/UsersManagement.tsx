@@ -1,8 +1,10 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Avatar } from '../../components/Avatar';
 import { SearchIcon } from '../../components/icons';
 import { apiErrorMessage } from '../../api/client';
-import { useAllUsers, useCreateUser, useDeleteUser, useUpdateUserRoles } from '../../api/hooks';
+import { useCreateUser, useDeleteUser, useSetUserActive, useUpdateUserRoles, useUserPage } from '../../api/hooks';
+import { Pager } from '../../components/Pager';
+import { useDebouncedValue } from '../../utils/useDebouncedValue';
 import { ROLE_LABELS, ROLES, Role, User } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { toast } from '../../components/Toaster';
@@ -32,13 +34,17 @@ export function RoleCheckboxes({ value, onChange, disabled }: { value: Role[]; o
 
 export function UsersManagement() {
   const { user: currentUser } = useAuth();
-  const { data: users, isLoading } = useAllUsers();
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<Role | ''>('');
+  const [page, setPage] = useState(1);
+  const q = useDebouncedValue(search.trim());
+  // Busca, filtro de papel e paginação ficam na API
+  const { data, isLoading } = useUserPage({ q, role: roleFilter, page });
+  const setActive = useSetUserActive();
   const updateRoles = useUpdateUserRoles();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
 
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<Role | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; roles: Role[] } | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -49,15 +55,7 @@ export function UsersManagement() {
   const [newRoles, setNewRoles] = useState<Role[]>(['ADVISOR']);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!users) return [];
-    const term = search.trim().toLowerCase();
-    return users.filter((u) => {
-      const matchesSearch = !term || u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term);
-      const matchesRole = !roleFilter || u.roles.includes(roleFilter);
-      return matchesSearch && matchesRole;
-    });
-  }, [users, search, roleFilter]);
+  const filtered = data?.items ?? [];
 
   if (isLoading) return <p>Carregando...</p>;
 
@@ -70,6 +68,17 @@ export function UsersManagement() {
       setEditing(null);
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível alterar os papéis deste usuário.'));
+    }
+  }
+
+  async function toggleActive(user: User) {
+    setError(null);
+    const active = user.active === false;
+    try {
+      await setActive.mutateAsync({ id: user.id, active });
+      toast(active ? `${user.name} foi reativado.` : `${user.name} foi desativado.`);
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível mudar o acesso deste usuário.'));
     }
   }
 
@@ -106,15 +115,31 @@ export function UsersManagement() {
         <h2>Usuários</h2>
         <p className="muted">
           Um professor pode acumular os papéis de Orientador, Avaliador e Coordenação. Aluno não combina com outros papéis. Novos cadastros
-          entram como Aluno.
+          entram como Aluno. Quem tem TCC ou parecer não pode ser excluído: desative para tirar o acesso e manter o histórico.
         </p>
 
         <div className="toolbar">
           <div className="search">
             <SearchIcon />
-            <input type="search" aria-label="Buscar usuário" placeholder="Buscar por nome ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input
+              type="search"
+              aria-label="Buscar usuário"
+              placeholder="Buscar por nome ou e-mail..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
           </div>
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} aria-label="Filtrar por papel">
+          <select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value as Role | '');
+              setPage(1);
+            }}
+            aria-label="Filtrar por papel"
+          >
             <option value="">Todos os papéis</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -145,11 +170,12 @@ export function UsersManagement() {
           </thead>
           <tbody>
             {filtered.map((u) => (
-              <tr key={u.id}>
+              <tr key={u.id} className={u.active === false ? 'row-inactive' : undefined}>
                 <td>
                   <span className="cell-person">
                     <Avatar name={u.name} />
                     {u.name}
+                    {u.active === false && <span className="status-badge status-DRAFT">Desativado</span>}
                   </span>
                 </td>
                 <td className="muted">{u.email}</td>
@@ -191,9 +217,14 @@ export function UsersManagement() {
                       </button>
                     </span>
                   ) : (
-                    <button type="button" className="danger" onClick={() => setConfirmingDeleteId(u.id)}>
-                      Excluir
-                    </button>
+                    <span className="confirm-inline">
+                      <button type="button" className="secondary" onClick={() => toggleActive(u)} disabled={setActive.isPending}>
+                        {u.active === false ? 'Reativar' : 'Desativar'}
+                      </button>
+                      <button type="button" className="danger" onClick={() => setConfirmingDeleteId(u.id)}>
+                        Excluir
+                      </button>
+                    </span>
                   )}
                 </td>
               </tr>
@@ -201,6 +232,7 @@ export function UsersManagement() {
           </tbody>
         </table>
         </div>
+        {data && <Pager page={data.page} total={data.total} perPage={data.perPage} onChange={setPage} />}
       </div>
 
       <div className="card">

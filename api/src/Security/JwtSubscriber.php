@@ -16,6 +16,7 @@ use Lexik\Bundle\JWTAuthenticationBundle\Events;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAccountStatusException;
 use Symfony\Component\Security\Core\Exception\TooManyLoginAttemptsAuthenticationException;
 
 /**
@@ -69,9 +70,13 @@ final class JwtSubscriber implements EventSubscriberInterface
 
     public function onAuthenticationFailure(AuthenticationFailureEvent $event): void
     {
-        $message = $event->getException() instanceof TooManyLoginAttemptsAuthenticationException
-            ? 'Muitas tentativas de login. Aguarde um minuto e tente novamente.'
-            : 'E-mail ou senha incorretos.';
+        $exception = $event->getException();
+        $message = match (true) {
+            $exception instanceof TooManyLoginAttemptsAuthenticationException => 'Muitas tentativas de login. Aguarde um minuto e tente novamente.',
+            // Só chega aqui com a senha certa (UserChecker::checkPostAuth)
+            $exception instanceof CustomUserMessageAccountStatusException => $exception->getMessageKey(),
+            default => 'E-mail ou senha incorretos.',
+        };
 
         $event->setResponse($this->unauthorized($message));
     }

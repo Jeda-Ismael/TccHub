@@ -36,6 +36,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
     private array $roles = [];
 
+    /** Desativado não entra mais no sistema, mas o histórico (TCCs, pareceres) fica. */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $active = true;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -155,6 +159,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function eraseCredentials(): void
     {
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function activate(): void
+    {
+        $this->active = true;
+    }
+
+    public function deactivate(): void
+    {
+        $this->active = false;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

@@ -18,6 +18,7 @@ use App\Entity\User;
 use App\Enum\Role;
 use App\Enum\TccStatus;
 use App\Exception\DomainRuleViolation;
+use App\Http\Pagination;
 use App\Repository\TccRepository;
 use App\Security\Voter\TccVoter;
 use App\Service\DefenseService;
@@ -56,10 +57,19 @@ final class TccController extends AbstractController
     ) {
     }
 
-    /** ?as=ADVISOR escolhe o papel da listagem (padrão: o primeiro papel do usuário). */
+    /**
+     * ?as=ADVISOR escolhe o papel da listagem (padrão: o primeiro papel do usuário).
+     * Filtros opcionais: `status`, `q` (título, aluno ou orientador) e `page`/`perPage`.
+     */
     #[Route('', name: 'api_tcc_list', methods: ['GET'])]
-    public function list(#[CurrentUser] User $user, #[MapQueryParameter] ?string $as = null, #[MapQueryParameter] ?string $status = null): JsonResponse
-    {
+    public function list(
+        #[CurrentUser] User $user,
+        #[MapQueryParameter] ?string $as = null,
+        #[MapQueryParameter] ?string $status = null,
+        #[MapQueryParameter] ?string $q = null,
+        #[MapQueryParameter] ?int $page = null,
+        #[MapQueryParameter] ?int $perPage = null,
+    ): JsonResponse {
         try {
             $role = null === $as ? $user->getRoleList()[0] : Role::fromApiName($as);
             $statusFilter = null === $status ? null : TccStatus::from($status);
@@ -69,11 +79,14 @@ final class TccController extends AbstractController
         if (!$user->hasRole($role)) {
             throw $this->createAccessDeniedException();
         }
+        $pagination = Pagination::fromQuery($page, $perPage);
 
-        return $this->json(array_map(
+        $result = $this->tccs->findVisibleAs($user, $role, $statusFilter, $q, $pagination);
+
+        return Pagination::respond(array_map(
             fn (Tcc $tcc): array => $this->view->present($tcc, $user),
-            $this->tccs->findVisibleAs($user, $role, $statusFilter),
-        ));
+            $result['items'],
+        ), $result['total'], $pagination);
     }
 
     #[Route('', name: 'api_tcc_create', methods: ['POST'])]

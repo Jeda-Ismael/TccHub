@@ -2418,3 +2418,12 @@ button.auth-submit:focus-visible {
     gap: 0.5rem;
   }
 }
+
+/* Usuário desativado na gestão de usuários */
+.row-inactive td {
+  color: var(--muted);
+}
+
+.row-inactive .avatar {
+  opacity: 0.55;
+}

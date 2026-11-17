@@ -128,11 +128,11 @@ final class TccService
             $this->index->sync($tcc);
 
             if ($authorized && !$this->hasUnreadPublicationRequest($tcc)) {
-                $this->notifier->notify(NotificationType::PublicationRequested, $tcc, $this->users->findByRole(Role::Coordination),
+                $this->notifier->notify(NotificationType::PublicationRequested, $tcc, $this->users->findByRole(Role::Coordination, onlyActive: true),
                     'Publicação autorizada pelo aluno',
                     \sprintf('%s autorizou a publicação de "%s" no repositório.', $tcc->getStudent()->getName(), $tcc->getTitle()));
             } elseif ($wasPublished) {
-                $this->notifier->notify(NotificationType::PublicationWithdrawn, $tcc, $this->users->findByRole(Role::Coordination),
+                $this->notifier->notify(NotificationType::PublicationWithdrawn, $tcc, $this->users->findByRole(Role::Coordination, onlyActive: true),
                     'TCC retirado do repositório',
                     \sprintf('%s retirou a autorização de "%s", que saiu do repositório.', $tcc->getStudent()->getName(), $tcc->getTitle()));
             }
