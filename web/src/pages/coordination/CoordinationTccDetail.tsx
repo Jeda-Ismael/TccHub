@@ -62,7 +62,7 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
         </p>
       )}
       <form onSubmit={handleSubmit}>
-        <div className="checkbox-list" style={{ flexDirection: 'column', marginBottom: '1rem' }}>
+        <div className="checkbox-list stacked">
           {candidates.map((evaluator) => {
             const member = verdictOf(evaluator.id);
             return (

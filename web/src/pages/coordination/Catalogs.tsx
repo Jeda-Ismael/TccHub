@@ -64,7 +64,7 @@ function ThematicAreasCard() {
       ))}
       {!areas?.length && <p className="muted">Nenhuma área temática cadastrada.</p>}
       {error && <p className="error-text">{error}</p>}
-      <form onSubmit={handleSubmit} className="btn-row" style={{ marginTop: '0.75rem' }}>
+      <form onSubmit={handleSubmit} className="add-row">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova área temática" />
         <button type="submit" disabled={createArea.isPending}>
           Adicionar
@@ -117,7 +117,7 @@ function KeywordsCard() {
       ))}
       {!keywords?.length && <p className="muted">Nenhuma palavra-chave cadastrada.</p>}
       {error && <p className="error-text">{error}</p>}
-      <form onSubmit={handleSubmit} className="btn-row" style={{ marginTop: '0.75rem' }}>
+      <form onSubmit={handleSubmit} className="add-row">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova palavra-chave" />
         <button type="submit" disabled={createKeyword.isPending}>
           Adicionar
@@ -163,8 +163,8 @@ function CatalogRow({
 
   if (confirmingDelete) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
-        <span style={{ flex: 1, fontSize: '0.9rem' }}>
+      <div className="row">
+        <span className="row-main confirm-inline">
           Excluir "{name}"?
         </span>
         <button
@@ -185,12 +185,12 @@ function CatalogRow({
   }
 
   return (
-    <div style={{ padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div className="row">
+      <div className="row-line">
         {editing ? (
-          <input value={value} onChange={(e) => setValue(e.target.value)} style={{ flex: 1 }} autoFocus />
+          <input className="row-main" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
         ) : (
-          <span style={{ flex: 1 }}>
+          <span className="row-main">
             {name} {usageCount > 0 && <span className="muted">· usado em {usageCount} TCC(s)</span>}
           </span>
         )}
@@ -229,7 +229,7 @@ function CatalogRow({
           </>
         )}
       </div>
-      {editError && <p className="error-text" style={{ marginTop: '0.35rem' }}>{editError}</p>}
+      {editError && <p className="error-text row-error">{editError}</p>}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTccs } from '../../api/hooks';
 import { QueryStatus } from '../../components/QueryStatus';
+import { ChevronRightIcon, SearchIcon } from '../../components/icons';
 import { StatusBadge } from '../../components/StatusBadge';
 import { STATUS_LABELS, TccStatus } from '../../api/types';
 
@@ -29,14 +30,18 @@ export function TccsOverview() {
   return (
     <div className="card">
       <h2>Todos os TCCs</h2>
-      <div className="btn-row" style={{ marginBottom: '1rem' }}>
-        <input
-          placeholder="Buscar por título, aluno ou orientador..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TccStatus | '')} style={{ width: 'auto' }}>
+      <div className="toolbar">
+        <div className="search">
+          <SearchIcon />
+          <input
+            type="search"
+            aria-label="Buscar TCC"
+            placeholder="Buscar por título, aluno ou orientador..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TccStatus | '')} aria-label="Filtrar por status">
           <option value="">Todos os status</option>
           {Object.entries(STATUS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -51,13 +56,18 @@ export function TccsOverview() {
 
       {filtered.map((tcc) => (
         <Link key={tcc.id} to={`/coordination/tcc/${tcc.id}`} className="tcc-list-item">
-          <div>
+          <div className="tcc-list-item-main">
             <h3>{tcc.title}</h3>
             <p>
               {tcc.student.name} · Orientador: {tcc.advisor?.name || '—'}
             </p>
           </div>
-          <StatusBadge status={tcc.status} />
+          <div className="tcc-list-item-side">
+            <StatusBadge status={tcc.status} />
+            <span className="chevron">
+              <ChevronRightIcon />
+            </span>
+          </div>
         </Link>
       ))}
     </div>

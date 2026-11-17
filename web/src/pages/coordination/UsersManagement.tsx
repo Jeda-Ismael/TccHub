@@ -1,4 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
+import { Avatar } from '../../components/Avatar';
+import { SearchIcon } from '../../components/icons';
 import { apiErrorMessage } from '../../api/client';
 import { useAllUsers, useCreateUser, useDeleteUser, useUpdateUserRoles } from '../../api/hooks';
 import { ROLE_LABELS, ROLES, Role, User } from '../../api/types';
@@ -103,9 +105,12 @@ export function UsersManagement() {
           entram como Aluno.
         </p>
 
-        <div className="btn-row" style={{ marginBottom: '1rem' }}>
-          <input placeholder="Buscar por nome ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} style={{ width: 'auto' }} aria-label="Filtrar por papel">
+        <div className="toolbar">
+          <div className="search">
+            <SearchIcon />
+            <input type="search" aria-label="Buscar usuário" placeholder="Buscar por nome ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} aria-label="Filtrar por papel">
             <option value="">Todos os papéis</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -122,23 +127,31 @@ export function UsersManagement() {
         )}
         {!filtered.length && <p className="muted">Nenhum usuário corresponde à busca.</p>}
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-wrap">
+        <table className="table">
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '0.5rem 0' }}>Nome</th>
+            <tr>
+              <th>Nome</th>
               <th>E-mail</th>
               <th>Papéis</th>
-              <th></th>
+              <th>
+                <span className="visually-hidden">Ações</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((u) => (
-              <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '0.5rem 0' }}>{u.name}</td>
-                <td>{u.email}</td>
+              <tr key={u.id}>
+                <td>
+                  <span className="cell-person">
+                    <Avatar name={u.name} />
+                    {u.name}
+                  </span>
+                </td>
+                <td className="muted">{u.email}</td>
                 <td>
                   {editing?.id === u.id ? (
-                    <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                    <span className="confirm-inline">
                       <RoleCheckboxes value={editing.roles} onChange={(roles) => setEditing({ id: u.id, roles })} disabled={updateRoles.isPending} />
                       <button type="button" onClick={saveRoles} disabled={updateRoles.isPending || editing.roles.length === 0}>
                         Salvar
@@ -148,7 +161,7 @@ export function UsersManagement() {
                       </button>
                     </span>
                   ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span className="confirm-inline">
                       <span className="role-chips">
                         {u.roles.map((role) => (
                           <span key={role} className="role-chip">
@@ -162,9 +175,9 @@ export function UsersManagement() {
                     </span>
                   )}
                 </td>
-                <td style={{ textAlign: 'right' }}>
+                <td>
                   {u.id === currentUser?.id ? null : confirmingDeleteId === u.id ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+                    <span className="confirm-inline">
                       Excluir?
                       <button type="button" className="danger" onClick={() => handleDelete(u)} disabled={deleteUser.isPending}>
                         Confirmar
@@ -183,6 +196,7 @@ export function UsersManagement() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="card">
