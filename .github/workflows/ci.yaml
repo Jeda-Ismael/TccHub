@@ -106,6 +106,14 @@ jobs:
           docker compose -f compose.yaml -f compose.prod.yaml exec -T php bin/console app:user:create "Coordenação CI" ci@hubtcc.dev --role=COORDINATION --password=senha-forte
           curl -fsSk -X POST https://localhost/api/auth/login -H 'Content-Type: application/json' -d '{"email":"ci@hubtcc.dev","password":"senha-forte"}' | grep -q accessToken
 
+      # Os valores vêm do env do job; o .env.prod vazio só satisfaz o --env-file do Makefile
+      - name: Backup (make prod-backup)
+        run: |
+          touch .env.prod
+          make prod-backup
+          gunzip -c backups/banco-*.sql.gz | grep -q 'CREATE TABLE public.tccs'
+          tar tzf backups/pdfs-*.tar.gz > /dev/null
+
       - name: Logs em caso de falha
         if: failure()
         run: docker compose -f compose.yaml -f compose.prod.yaml logs

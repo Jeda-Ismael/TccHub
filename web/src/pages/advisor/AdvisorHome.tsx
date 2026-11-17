@@ -2,6 +2,7 @@ import { useTccs } from '../../api/hooks';
 import { QueryStatus } from '../../components/QueryStatus';
 import { TccListItem } from '../../components/TccListItem';
 import { EmptyState } from '../../components/EmptyState';
+import { MilestonesCard } from '../../components/MilestonesCard';
 
 export function AdvisorHome() {
   const { data: tccs, isLoading, error } = useTccs('ADVISOR');
@@ -31,6 +32,7 @@ export function AdvisorHome() {
           {!!tccs.length && !others.length && <p className="muted">Todos os seus orientandos estão aguardando revisão.</p>}
         </div>
       )}
+      <MilestonesCard />
     </div>
   );
 }

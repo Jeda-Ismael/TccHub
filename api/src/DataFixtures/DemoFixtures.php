@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\DataFixtures;
 
+use App\Entity\AdvisingMeeting;
 use App\Entity\BoardMember;
 use App\Entity\Keyword;
+use App\Entity\Milestone;
 use App\Entity\Tcc;
 use App\Entity\ThematicArea;
 use App\Entity\User;
@@ -89,6 +91,12 @@ final class DemoFixtures extends Fixture implements DependentFixtureInterface, F
         $tcc = $this->tcc($manager, 'Migração de monólitos para microsserviços', 'Estudo de caso da migração de um sistema acadêmico legado.', $student, $advisor, ['Engenharia de Software'], ['metodologias ágeis', 'computação em nuvem']);
         $this->submit($tcc, $student);
         $manager->persist($tcc);
+        $tz = new \DateTimeZone($this->timezone);
+        $now = new \DateTimeImmutable('now', $tz);
+        $first = new AdvisingMeeting($tcc, $advisor, new \DateTimeImmutable('-21 days', $tz), 'Definimos o recorte: o módulo de matrículas será o primeiro a sair do monólito.', 'Levantar as dependências do módulo de matrículas.', $now);
+        $first->confirm($now);
+        $manager->persist($first);
+        $manager->persist(new AdvisingMeeting($tcc, $advisor, new \DateTimeImmutable('-3 days', $tz), 'Revisamos o capítulo de metodologia e o plano de testes da migração.', 'Ajustar o cronograma e enviar a versão revisada.', $now));
 
         // Aguardando a defesa, já agendada
         $student = $this->student('Júlia Ferreira');
@@ -96,6 +104,11 @@ final class DemoFixtures extends Fixture implements DependentFixtureInterface, F
         $this->toDefense($tcc, $student, $professor, [$evaluator1, $evaluator2]);
         $tcc->getCurrentDefense()?->schedule(new \DateTimeImmutable('+7 days 14:00', new \DateTimeZone($this->timezone)), 'Auditório do bloco B', null, $professor);
         $manager->persist($tcc);
+
+        // Cronograma do semestre
+        foreach ([['Projeto', 'Problema, objetivos e metodologia.', '-30 days'], ['Qualificação', 'Apresentação parcial ao orientador.', '+10 days'], ['Versão final', 'PDF completo para a banca.', '+45 days']] as [$name, $description, $when]) {
+            $manager->persist(new Milestone($name, $description, new \DateTimeImmutable($when, new \DateTimeZone($this->timezone))));
+        }
 
         $manager->flush();
         $this->index->rebuild();

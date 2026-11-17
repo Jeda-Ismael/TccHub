@@ -20,3 +20,6 @@ dist/
 
 # Cache do Vite (nunca versionar)
 .vite/
+
+# Backups gerados por make prod-backup
+/backups/

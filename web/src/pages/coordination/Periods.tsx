@@ -4,6 +4,7 @@ import { useCreatePeriod, useDeletePeriod, usePeriods, useUpdatePeriod } from '.
 import { SubmissionPeriod } from '../../api/types';
 import { toast } from '../../components/Toaster';
 import { formatDate } from '../../utils/dates';
+import { Milestones } from './Milestones';
 
 // A API já diz se o prazo está aberto agora (no relógio do servidor)
 function isActive(period: SubmissionPeriod) {
@@ -159,6 +160,8 @@ export function Periods() {
           </div>
         </form>
       </div>
+
+      <Milestones />
     </div>
   );
 }

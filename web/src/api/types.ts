@@ -101,6 +101,8 @@ export interface TccPermissions {
   decide: boolean;
   authorizePublication: boolean;
   publish: boolean;
+  /** Orientador pode registrar reunião de orientação. */
+  recordMeeting?: boolean;
 }
 
 export type DefenseOutcome = 'PENDING' | 'PASSED' | 'FAILED';
@@ -213,7 +215,9 @@ export type NotificationType =
   | 'PUBLICATION_REQUESTED'
   | 'PUBLICATION_WITHDRAWN'
   | 'TCC_PUBLISHED'
-  | 'TCC_UNPUBLISHED';
+  | 'TCC_UNPUBLISHED'
+  | 'MEETING_RECORDED'
+  | 'MEETING_CONFIRMED';
 
 export interface AppNotification {
   id: string;
@@ -230,6 +234,44 @@ export interface AppNotification {
 export interface NotificationList {
   items: AppNotification[];
   unreadCount: number;
+}
+
+/** Reunião de orientação: o orientador registra, o aluno confirma. */
+export interface AdvisingMeeting {
+  id: string;
+  /** AAAA-MM-DD */
+  heldOn: string;
+  summary: string;
+  nextSteps: string | null;
+  advisor: UserSummary;
+  confirmedAt: string | null;
+  createdAt: string;
+  permissions: { confirm: boolean; delete: boolean };
+}
+
+export type MilestoneStatus = 'DONE' | 'NEXT' | 'UPCOMING';
+
+/** Etapa do cronograma do TCC, definida pela coordenação. */
+export interface Milestone {
+  id: string;
+  name: string;
+  description: string | null;
+  /** AAAA-MM-DD */
+  dueDate: string;
+  /** Só na listagem. */
+  status?: MilestoneStatus;
+}
+
+export interface MeetingInput {
+  heldOn: string;
+  summary: string;
+  nextSteps?: string;
+}
+
+export interface MilestoneInput {
+  name: string;
+  description?: string;
+  dueDate: string;
 }
 
 // --- Repositório ---

@@ -10,6 +10,8 @@ import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
 import { toast } from '../../components/Toaster';
+import { MeetingsCard } from '../../components/MeetingsCard';
+import { MilestonesCard } from '../../components/MilestonesCard';
 
 /** O que o aluno precisa saber/fazer em cada status. */
 const NEXT_STEP: Record<TccStatus, string> = {
@@ -74,6 +76,8 @@ function StudentTcc({ tccId, onStartNew }: { tccId: string; onStartNew?: () => v
       <PublicationCard tcc={tcc} />
       <DefenseSection tcc={tcc} />
       {roundFinished && <BoardList board={tcc.board} title="Pareceres da banca" />}
+      <MeetingsCard tcc={tcc} />
+      <MilestonesCard />
       <StatusHistoryTimeline entries={tcc.statusHistory} />
 
       {onStartNew && (

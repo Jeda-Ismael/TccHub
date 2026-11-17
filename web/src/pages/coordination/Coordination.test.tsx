@@ -196,7 +196,7 @@ describe('coordenação: prazos', () => {
   const period = { id: 'p1', type: 'SUBMISSION', label: '2026/2', startDate: '2026-08-01T00:00:00-03:00', endDate: '2026-12-15T23:59:59-03:00', active: true };
 
   it('lista, cria, edita e exclui', async () => {
-    const calls = mockApi((config) => ({ status: 200, data: config.method === 'get' ? [period] : period }));
+    const calls = mockApi((config) => ({ status: 200, data: config.method === 'get' ? (config.url === '/milestones' ? [] : [period]) : period }));
     const user = userEvent.setup();
     renderPage(<Periods />);
 
@@ -224,7 +224,7 @@ describe('coordenação: prazos', () => {
 
   it('cancela a edição e mostra erro ao salvar', async () => {
     mockApi((config) =>
-      config.method === 'get' ? { status: 200, data: [period] } : { status: 422, data: { statusCode: 422, message: 'O fim deve ser depois do início.' } },
+      config.method === 'get' ? { status: 200, data: config.url === '/milestones' ? [] : [period] } : { status: 422, data: { statusCode: 422, message: 'O fim deve ser depois do início.' } },
     );
     const user = userEvent.setup();
     renderPage(<Periods />);

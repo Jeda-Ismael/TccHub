@@ -33,10 +33,12 @@ final class TccVoter extends Voter
     public const DECIDE = 'TCC_DECIDE';
     public const AUTHORIZE_PUBLICATION = 'TCC_AUTHORIZE_PUBLICATION';
     public const PUBLISH = 'TCC_PUBLISH';
+    public const RECORD_MEETING = 'TCC_RECORD_MEETING';
 
     public const ATTRIBUTES = [
         self::VIEW, self::EDIT, self::UPLOAD, self::SUBMIT, self::ADVISOR_REVIEW, self::EVALUATE, self::MANAGE_BOARD,
         self::SCHEDULE_DEFENSE, self::GRADE_DEFENSE, self::DECIDE, self::AUTHORIZE_PUBLICATION, self::PUBLISH,
+        self::RECORD_MEETING,
     ];
 
     protected function supports(string $attribute, mixed $subject): bool
@@ -77,6 +79,8 @@ final class TccVoter extends Voter
             // Repositório: o aluno autoriza (ou retira) e a coordenação publica (ou tira do ar)
             self::AUTHORIZE_PUBLICATION => $isAuthor && TccStatus::Approved === $subject->getStatus(),
             self::PUBLISH => $isCoordination && TccStatus::Approved === $subject->getStatus(),
+            // Reuniões de orientação: o orientador registra enquanto o TCC está em andamento
+            self::RECORD_MEETING => $subject->isAdvisedBy($user) && !$subject->getStatus()->isFinal(),
             default => false,
         };
     }

@@ -673,15 +673,15 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 **Ideias vindas de projetos de referência** (§16), em ordem sugerida:
 
 1. ~~**Ata de defesa em PDF.**~~ **Feito (etapa 5):** gerada na hora com Dompdf a partir de `templates/pdf/defense_minutes.html.twig` quando a defesa encerra, por link assinado (`minutesUrl` da defesa, 5 minutos) para quem vê o TCC. Falta: assinatura digital dos membros da banca (inspirado no gestao-tccs, IFPE).
-2. **Registro de reuniões de orientação.** O orientador registra data, assunto e encaminhamentos, e o aluno confirma. Gera um histórico de acompanhamento útil para comprovar a orientação. *Modelo:* `advising_meetings (tcc_id, held_at, topic, notes, next_steps, confirmed_by_student_at)` (inspirado no gtcc e no SIGA-TCC).
-3. **Etapas com cronograma.** A coordenação define marcos por período (ex.: projeto, qualificação, versão final) com prazos, e o aluno entrega o PDF em cada etapa, com o orientador dando parecer. *Modelo:* `milestones (period_id, name, due_date, order)` + `milestone_submissions`. Afeta o workflow: as etapas viram pré-requisito do `submit` final (inspirado no gtcc e no ls1intum).
+2. ~~**Registro de reuniões de orientação.**~~ **Feito (etapa 5):** `advising_meetings (tcc_id, advisor_id, held_on, summary, next_steps, confirmed_at)`. O orientador registra enquanto o TCC está em andamento (`TccVoter::RECORD_MEETING`), o aluno confirma, e quem vê o TCC vê as reuniões (`/api/tcc/{id}/meetings`). Uma reunião confirmada não pode ser apagada. Avisos `MEETING_RECORDED` e `MEETING_CONFIRMED`.
+3. **Etapas com cronograma.** *Feito em parte (etapa 5):* a coordenação define as etapas com data limite (`milestones (name, description, due_date)`, `/api/milestones`), e alunos e orientadores veem o cronograma com a próxima entrega em destaque. Falta: entrega de PDF por etapa com parecer do orientador (`milestone_submissions`) e as etapas como pré-requisito do `submit` final (inspirado no gtcc e no ls1intum).
 
 **Outros**
 
 
 - Login com Google
 - Verificação de e-mail no cadastro
-- Deploy de fato num servidor (a configuração já está pronta — ver `docs/DEPLOY.md`)
+- Deploy de fato num servidor (a configuração, o backup e o deploy automático pela CI estão prontos; falta o servidor — ver `docs/DEPLOY.md`)
 - Notificações em tempo real via Mercure
 - Armazenamento em S3/MinIO
 

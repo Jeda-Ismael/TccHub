@@ -10,6 +10,7 @@ import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
 import { toast } from '../../components/Toaster';
+import { MeetingsCard } from '../../components/MeetingsCard';
 
 export function CoordinationTccDetail() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ export function CoordinationTccDetail() {
       <PublicationCard tcc={tcc} />
       <DefenseSection tcc={tcc} />
       {tcc.permissions.manageBoard ? <BoardForm tcc={tcc} /> : <BoardList board={tcc.board} />}
+      <MeetingsCard tcc={tcc} />
       <StatusHistoryTimeline entries={tcc.statusHistory} />
     </div>
   );

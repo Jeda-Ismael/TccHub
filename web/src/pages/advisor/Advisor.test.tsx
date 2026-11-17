@@ -12,7 +12,7 @@ describe('orientador', () => {
     const waiting = makeTcc({ id: 't1', title: 'Precisa de revisão', status: 'SUBMITTED', permissions: perms({ advisorReview: true }) });
     const toSchedule = makeTcc({ id: 't2', title: 'Defesa sem data', status: 'AWAITING_DEFENSE', permissions: perms({ scheduleDefense: true }) });
     const other = makeTcc({ id: 't3', title: 'Em avaliação', status: 'SENT_TO_EVALUATION' });
-    mockApi(() => ({ status: 200, data: [waiting, toSchedule, other] }));
+    mockApi((config) => ({ status: 200, data: config.url === '/milestones' ? [] : [waiting, toSchedule, other] }));
 
     renderPage(<AdvisorHome />);
 
@@ -32,7 +32,7 @@ describe('orientador', () => {
   });
 
   it('todos aguardando revisão', async () => {
-    mockApi(() => ({ status: 200, data: [makeTcc({ permissions: perms({ advisorReview: true }) })] }));
+    mockApi((config) => ({ status: 200, data: config.url === '/milestones' ? [] : [makeTcc({ permissions: perms({ advisorReview: true }) })] }));
 
     renderPage(<AdvisorHome />);
 

@@ -106,6 +106,7 @@ final class TccView implements ResetInterface
                 'decide' => $this->authorization->isGranted(TccVoter::DECIDE, $tcc),
                 'authorizePublication' => $this->authorization->isGranted(TccVoter::AUTHORIZE_PUBLICATION, $tcc),
                 'publish' => $this->authorization->isGranted(TccVoter::PUBLISH, $tcc),
+                'recordMeeting' => $this->authorization->isGranted(TccVoter::RECORD_MEETING, $tcc),
             ],
         ];
     }
