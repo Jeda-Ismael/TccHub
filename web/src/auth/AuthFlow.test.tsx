@@ -145,6 +145,23 @@ describe('fluxo de autenticação', () => {
     expect(calls.some((c) => c.url === '/auth/logout')).toBe(true);
   });
 
+  it('no celular, o menu da conta mostra nome e papel e permite sair', async () => {
+    const calls = mockApi((config) => (config.url === '/auth/refresh' ? { status: 200, data: authResponse(['STUDENT'], 't', 'Ana Aluna') } : { status: 200 }));
+    renderApp('/');
+    const user = userEvent.setup();
+
+    const toggle = await screen.findByRole('button', { name: 'Conta de Ana Aluna' });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{Escape}');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggle);
+    await user.click(screen.getByRole('button', { name: 'Sair da conta' }));
+    expect(await screen.findByLabelText('E-mail')).toBeInTheDocument();
+    expect(calls.some((c) => c.url === '/auth/logout')).toBe(true);
+  });
+
   it('cadastra um aluno e já entra no sistema', async () => {
     const calls = mockApi((config) =>
       config.url === '/auth/register' ? { status: 201, data: authResponse(['STUDENT'], 't', 'Bruna') } : { status: 401 },

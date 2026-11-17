@@ -128,6 +128,19 @@ function TccForm({ tcc, onCreated }: { tcc?: Tcc; onCreated?: () => void }) {
 
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const pending = createTcc.isPending || updateTcc.isPending;
+  // Depois do rascunho os dados quase nunca mudam: o formulário fica fechado até o aluno pedir
+  const [expanded, setExpanded] = useState(!tcc || tcc.status === 'DRAFT');
+
+  if (!expanded) {
+    return (
+      <div className="card card-collapsed">
+        <h3>Dados do TCC</h3>
+        <button type="button" className="secondary" onClick={() => setExpanded(true)} aria-expanded={false}>
+          Editar título, resumo e orientador
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="card">

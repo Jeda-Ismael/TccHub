@@ -1,6 +1,7 @@
 import { useTccs } from '../../api/hooks';
 import { QueryStatus } from '../../components/QueryStatus';
 import { TccListItem } from '../../components/TccListItem';
+import { EmptyState } from '../../components/EmptyState';
 
 export function AdvisorHome() {
   const { data: tccs, isLoading, error } = useTccs('ADVISOR');
@@ -23,7 +24,7 @@ export function AdvisorHome() {
       {tccs && (
         <div className="card">
           <h2>Meus orientandos</h2>
-          {!tccs.length && <p className="muted">Nenhum TCC sob sua orientação ainda.</p>}
+          {!tccs.length && <EmptyState title="Nenhum TCC sob sua orientação ainda.">Quando um aluno escolher você como orientador, o TCC aparece aqui.</EmptyState>}
           {others.map((tcc) => (
             <TccListItem key={tcc.id} tcc={tcc} to={`/advisor/${tcc.id}`} subtitle={tcc.student.name} />
           ))}

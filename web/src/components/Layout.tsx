@@ -1,4 +1,5 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { HOME_BY_ROLE } from '../auth/homeByRole';
 import { ROLE_LABELS, Role } from '../api/types';
@@ -9,6 +10,25 @@ import { Avatar } from './Avatar';
 export function Layout() {
   const { user, activeRole, setActiveRole, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // No celular o nome e o papel ficam num menu atrás do avatar
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setMenuOpen(false), [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function close(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [menuOpen]);
 
   function switchRole(role: Role) {
     setActiveRole(role);
@@ -54,9 +74,30 @@ export function Layout() {
             ) : (
               <span className="topbar-role">{ROLE_LABELS[activeRole]}</span>
             )}
-            <button className="secondary" onClick={handleLogout}>
+            <button className="secondary topbar-logout" onClick={handleLogout}>
               Sair
             </button>
+            <div className="account-menu" ref={menuRef}>
+              <button
+                type="button"
+                className="account-toggle"
+                aria-expanded={menuOpen}
+                aria-label={`Conta de ${user.name}`}
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                <Avatar name={user.name} />
+              </button>
+              {menuOpen && (
+                <div className="account-panel">
+                  <strong>{user.name}</strong>
+                  <span className="muted">{user.email}</span>
+                  <span className="topbar-role-chip">{ROLE_LABELS[activeRole]}</span>
+                  <button type="button" className="secondary" onClick={handleLogout}>
+                    Sair da conta
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </header>

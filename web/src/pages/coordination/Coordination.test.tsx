@@ -116,6 +116,33 @@ describe('coordenação: TCCs', () => {
     expect(await screen.findByText('Banca atualizada.')).toBeInTheDocument();
   });
 
+  it('busca avaliadores e não deixa passar do máximo', async () => {
+    const tcc = makeTcc({ status: 'SUBMITTED', permissions: perms({ manageBoard: true }) });
+    const evaluators = ['Bruno', 'Carla', 'Diego', 'Elisa', 'Fábio', 'Gabi', 'Heitor'].map((name, i) => ({ id: `e${i}`, name, email: `${name}@x`, roles: ['EVALUATOR'] }));
+    mockApi((config) => {
+      if (config.url === '/users') return { status: 200, data: evaluators };
+      if (config.url === '/settings') return { status: 200, data: { boardMinSize: 2, boardMaxSize: 3, passingGrade: 6 } };
+      return { status: 200, data: tcc };
+    });
+    const user = userEvent.setup();
+    renderPage(<CoordinationTccDetail />, { path: `/coordination/tcc/${tcc.id}`, route: '/coordination/tcc/:id' });
+
+    const board = (await screen.findByRole('heading', { name: 'Banca avaliadora' })).parentElement!;
+    expect(within(board).getByText('0 de 3 escolhidos')).toBeInTheDocument();
+    for (const name of ['Bruno', 'Carla', 'Diego']) await user.click(within(board).getByLabelText(name));
+    expect(within(board).getByText('3 de 3 escolhidos')).toBeInTheDocument();
+    expect(within(board).getByLabelText('Elisa')).toBeDisabled();
+
+    await user.type(within(board).getByLabelText('Buscar avaliador'), 'gab');
+    // Quem já foi escolhido continua aparecendo
+    expect(within(board).getByLabelText('Gabi')).toBeInTheDocument();
+    expect(within(board).getByLabelText('Bruno')).toBeChecked();
+    expect(within(board).queryByLabelText('Heitor')).not.toBeInTheDocument();
+    await user.clear(within(board).getByLabelText('Buscar avaliador'));
+    await user.type(within(board).getByLabelText('Buscar avaliador'), 'zzz');
+    expect(within(board).getByLabelText('Bruno')).toBeInTheDocument();
+  });
+
   it('erro ao salvar a banca', async () => {
     const tcc = makeTcc({ permissions: perms({ manageBoard: true }) });
     mockApi((config) => {

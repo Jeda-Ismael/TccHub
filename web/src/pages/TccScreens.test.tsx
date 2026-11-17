@@ -49,6 +49,30 @@ describe('tela do aluno', () => {
     expect(screen.getByRole('button', { name: 'Reenviar TCC' })).toBeEnabled();
   });
 
+  it('depois do rascunho, os dados ficam fechados e o histórico mostra só os últimos passos', async () => {
+    const history = Array.from({ length: 6 }, (_, i) => ({
+      id: `h${i}`,
+      fromStatus: null,
+      toStatus: 'SUBMITTED' as const,
+      transition: 'submit',
+      comment: `passo ${i + 1}`,
+      changedBy: null,
+      createdAt: `2026-10-0${i + 1}T10:00:00-03:00`,
+    }));
+    const tcc = makeTcc({ status: 'CORRECTIONS_REQUESTED', statusHistory: history, permissions: perms({ edit: true, upload: true, submit: true }) });
+    mockApi((config) => (config.url === '/tcc' ? { status: 200, data: [tcc] } : config.url === '/tcc/t1' ? { status: 200, data: tcc } : { status: 200, data: [] }));
+    renderWithProviders(<StudentHome />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Editar título, resumo e orientador' }));
+    expect(screen.getByLabelText('Título')).toHaveValue('Detecção de fraudes');
+
+    expect(screen.queryByText('"passo 1"')).not.toBeInTheDocument();
+    expect(screen.getByText('"passo 6"')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ver histórico completo (6)' }));
+    expect(screen.getByText('"passo 1"')).toBeInTheDocument();
+  });
+
   it('mostra a mensagem da API quando a submissão é recusada', async () => {
     const tcc = makeTcc({ permissions: perms({ edit: true, upload: true, submit: true }) });
     mockApi((config) => {

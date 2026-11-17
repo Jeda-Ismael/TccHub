@@ -141,16 +141,37 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
   const [location, setLocation] = useState(defense.location ?? '');
   const [meetingUrl, setMeetingUrl] = useState(defense.meetingUrl ?? '');
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  // Já agendada: o formulário fica atrás do botão "Reagendar" para não poluir a tela
+  const [open, setOpen] = useState(!defense.scheduledAt);
+
+  function reset() {
+    setScheduledAt(toInputValue(defense.scheduledAt));
+    setLocation(defense.location ?? '');
+    setMeetingUrl(defense.meetingUrl ?? '');
+    setMessage(null);
+    setOpen(false);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setMessage(null);
     try {
       await schedule.mutateAsync({ scheduledAt, location: location.trim() || undefined, meetingUrl: meetingUrl.trim() || undefined });
-      toast('Defesa agendada.');
+      toast(defense.scheduledAt ? 'Defesa reagendada.' : 'Defesa agendada.');
+      if (defense.scheduledAt) setOpen(false);
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível agendar.'), error: true });
     }
+  }
+
+  if (!open) {
+    return (
+      <div className="btn-row defense-reschedule">
+        <button type="button" className="secondary" onClick={() => setOpen(true)}>
+          Reagendar
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -177,9 +198,16 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
           {message.text}
         </p>
       )}
-      <button type="submit" disabled={schedule.isPending}>
-        {defense.scheduledAt ? 'Salvar novo horário' : 'Agendar'}
-      </button>
+      <div className="btn-row">
+        <button type="submit" disabled={schedule.isPending}>
+          {defense.scheduledAt ? 'Salvar novo horário' : 'Agendar'}
+        </button>
+        {defense.scheduledAt && (
+          <button type="button" className="secondary" onClick={reset}>
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }

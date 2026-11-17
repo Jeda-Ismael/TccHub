@@ -7,6 +7,7 @@ import { ChevronRightIcon, SearchIcon } from '../../components/icons';
 import { StatusBadge } from '../../components/StatusBadge';
 import { STATUS_LABELS, TccStatus } from '../../api/types';
 import { useDebouncedValue } from '../../utils/useDebouncedValue';
+import { EmptyState } from '../../components/EmptyState';
 
 export function TccsOverview() {
   const [search, setSearch] = useState('');
@@ -58,7 +59,7 @@ export function TccsOverview() {
         </select>
       </div>
 
-      {!tccs.length && <p className="muted">{filtering ? 'Nenhum TCC corresponde à busca.' : 'Nenhum TCC cadastrado ainda.'}</p>}
+      {!tccs.length && <EmptyState title={filtering ? 'Nenhum TCC corresponde à busca.' : 'Nenhum TCC cadastrado ainda.'}>{filtering ? 'Tente outro termo ou limpe o filtro de status.' : 'Os TCCs aparecem aqui quando os alunos se cadastrarem.'}</EmptyState>}
 
       {tccs.map((tcc) => (
         <Link key={tcc.id} to={`/coordination/tcc/${tcc.id}`} className="tcc-list-item">

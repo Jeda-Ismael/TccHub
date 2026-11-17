@@ -127,4 +127,27 @@ describe('seção da defesa', () => {
 
     expect(JSON.parse(calls[0].data)).toEqual({ scheduledAt: '2026-11-20T14:00', location: 'Sala 101' });
   });
+
+  it('reagendar fica atrás de um botão e pode ser cancelado', async () => {
+    const tcc = makeTcc({ status: 'AWAITING_DEFENSE', defense: defense({ hasStarted: false }), permissions: perms({ scheduleDefense: true }) });
+    const calls = mockApi(() => ({ status: 200, data: tcc }));
+    renderSection(tcc);
+    const user = userEvent.setup();
+
+    expect(screen.queryByLabelText('Data e hora')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reagendar' }));
+    await user.clear(screen.getByLabelText(/Sala/));
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByLabelText(/Sala/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reagendar' }));
+    expect(screen.getByLabelText(/Sala/)).toHaveValue('Sala 101');
+    await user.clear(screen.getByLabelText(/Sala/));
+    await user.type(screen.getByLabelText(/Sala/), 'Auditório');
+    await user.click(screen.getByRole('button', { name: 'Salvar novo horário' }));
+
+    expect(JSON.parse(calls[0].data)).toMatchObject({ location: 'Auditório' });
+    expect(await screen.findByText('Defesa reagendada.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reagendar' })).toBeInTheDocument();
+  });
 });

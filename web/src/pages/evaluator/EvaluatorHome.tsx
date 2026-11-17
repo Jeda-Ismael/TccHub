@@ -1,6 +1,7 @@
 import { useTccs } from '../../api/hooks';
 import { QueryStatus } from '../../components/QueryStatus';
 import { TccListItem } from '../../components/TccListItem';
+import { EmptyState } from '../../components/EmptyState';
 
 export function EvaluatorHome() {
   const { data: tccs, isLoading, error } = useTccs('EVALUATOR');
@@ -26,7 +27,7 @@ export function EvaluatorHome() {
       {tccs && (
         <div className="card">
           <h2>Minhas bancas</h2>
-          {!tccs.length && <p className="muted">Você ainda não foi incluído em nenhuma banca.</p>}
+          {!tccs.length && <EmptyState title="Você ainda não foi incluído em nenhuma banca.">Quando a coordenação montar uma banca com você, o TCC aparece aqui.</EmptyState>}
           {others.map((tcc) => (
             <TccListItem key={tcc.id} tcc={tcc} to={`/evaluator/${tcc.id}`} subtitle={`${tcc.student.name} · Orientador: ${tcc.advisor?.name ?? '—'}`} />
           ))}

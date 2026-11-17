@@ -36,6 +36,22 @@
   --defense-bg: #f1eafa;
   --neutral: #52525b;
   --neutral-bg: #ededef;
+  --info-line: #d3d9f5;
+  --info-strong: #26357f;
+  --success-line: #bfe7d3;
+  --danger-line: #f2c9c3;
+  --danger-strong: #8f2a22;
+  --danger-ring: #fdf3f1;
+
+  /* Sobre fundo escuro (barra lateral, botões cheios) */
+  --on-dark: #ffffff;
+  --on-dark-muted: #d4d4d8;
+  --success-on-dark: #6ee7b7;
+  --danger-on-dark: #fca5a5;
+
+  /* Interação */
+  --surface-hover: #e9e9ec;
+  --line-hover: #a1a1aa;
 
   /* Compat com nomes antigos */
   --bg: var(--paper);
@@ -426,7 +442,7 @@ label {
   padding: 0.75rem 0.85rem 0.75rem 1rem;
   border-radius: var(--radius-sm);
   background: var(--graphite);
-  color: #fff;
+  color: var(--on-dark);
   font-size: 0.92rem;
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
   pointer-events: auto;
@@ -434,11 +450,11 @@ label {
 }
 
 .toast-success svg {
-  color: #6ee7b7;
+  color: var(--success-on-dark);
 }
 
 .toast-error svg {
-  color: #fca5a5;
+  color: var(--danger-on-dark);
 }
 
 .toast span {
@@ -456,7 +472,7 @@ label {
 }
 
 .toast button.toast-close:hover {
-  color: #fff;
+  color: var(--on-dark);
   background: none;
 }
 
@@ -502,13 +518,13 @@ select {
 
 input::placeholder,
 textarea::placeholder {
-  color: #9b9ba3;
+  color: var(--muted);
 }
 
 input:hover,
 textarea:hover,
 select:hover {
-  border-color: #a1a1aa;
+  border-color: var(--line-hover);
 }
 
 input:focus,
@@ -657,7 +673,7 @@ button {
   font-size: 0.92rem;
   font-weight: 600;
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
 
@@ -677,13 +693,13 @@ button.secondary {
 
 button.secondary:hover {
   background: var(--surface-sunk);
-  border-color: #a1a1aa;
+  border-color: var(--line-hover);
 }
 
 button.danger {
   background: var(--surface);
   color: var(--danger);
-  border-color: #f0c4be;
+  border-color: var(--danger-line);
 }
 
 button.danger:hover {
@@ -694,13 +710,13 @@ button.danger:hover {
 button.danger.solid,
 .confirm-inline button.danger {
   background: var(--danger);
-  color: #ffffff;
+  color: var(--on-dark);
   border-color: var(--danger);
 }
 
 button.danger.solid:hover,
 .confirm-inline button.danger:hover {
-  background: #952921;
+  background: var(--danger-strong);
 }
 
 button.small {
@@ -873,7 +889,7 @@ button:disabled {
 .progress-step.done .progress-dot {
   background: var(--primary);
   border-color: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
 }
 
 .progress-step.done::after {
@@ -899,7 +915,7 @@ button:disabled {
   border-color: var(--danger);
   background: var(--danger-bg);
   color: var(--danger);
-  box-shadow: 0 0 0 4px #fdf3f1;
+  box-shadow: 0 0 0 4px var(--danger-ring);
 }
 
 .progress-step.attention .progress-note {
@@ -1001,7 +1017,7 @@ a.tcc-list-item:hover + .tcc-list-item {
 }
 
 .tcc-list-item-side .chevron {
-  color: #a1a1aa;
+  color: var(--line-hover);
   transition: transform 150ms ease, color 150ms ease;
 }
 
@@ -1016,7 +1032,7 @@ a.tcc-list-item:hover .chevron {
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
   background: var(--warning);
-  color: #ffffff;
+  color: var(--on-dark);
   font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 700;
@@ -1144,7 +1160,7 @@ a.tcc-list-item:hover .chevron {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #e9e9ec;
+  background: var(--surface-hover);
   color: var(--graphite);
   font-size: 0.8rem;
   font-weight: 700;
@@ -1319,7 +1335,7 @@ a.tcc-list-item:hover .chevron {
 
 .notice.danger {
   background: var(--danger-bg);
-  border-color: #f2c9c3;
+  border-color: var(--danger-line);
 }
 
 .notice.danger > svg {
@@ -1328,7 +1344,7 @@ a.tcc-list-item:hover .chevron {
 
 .notice.info {
   background: var(--info-bg);
-  border-color: #d3d9f5;
+  border-color: var(--info-line);
 }
 
 .notice.info > svg {
@@ -1337,7 +1353,7 @@ a.tcc-list-item:hover .chevron {
 
 .notice.success {
   background: var(--success-bg);
-  border-color: #bfe7d3;
+  border-color: var(--success-line);
 }
 
 .notice.success > svg {
@@ -1483,7 +1499,7 @@ a.tcc-list-item:hover .chevron {
   padding: 0 1.75rem;
   min-height: 64px;
   background: var(--graphite);
-  color: #d4d4d8;
+  color: var(--on-dark-muted);
 }
 
 .topbar-nav {
@@ -1498,7 +1514,7 @@ a.tcc-list-item:hover .chevron {
   align-items: center;
   gap: 0.55rem;
   margin-right: 1.25rem;
-  color: #ffffff;
+  color: var(--on-dark);
   text-decoration: none;
   font-family: var(--font-display);
   font-weight: 800;
@@ -1507,7 +1523,7 @@ a.tcc-list-item:hover .chevron {
 }
 
 .topbar-brand:hover {
-  color: #ffffff;
+  color: var(--on-dark);
 }
 
 .brand-mark {
@@ -1517,7 +1533,7 @@ a.tcc-list-item:hover .chevron {
   height: 32px;
   border-radius: 9px;
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
   flex-shrink: 0;
 }
 
@@ -1527,7 +1543,7 @@ a.tcc-list-item:hover .chevron {
   gap: 0.45rem;
   padding: 0.45rem 0.8rem;
   border-radius: 9px;
-  color: #d4d4d8;
+  color: var(--on-dark-muted);
   text-decoration: none;
   font-weight: 500;
   font-size: 0.93rem;
@@ -1537,12 +1553,12 @@ a.tcc-list-item:hover .chevron {
 
 .topbar-nav a:not(.topbar-brand):hover {
   background: var(--graphite-2);
-  color: #ffffff;
+  color: var(--on-dark);
 }
 
 .topbar-nav a.active:not(.topbar-brand) {
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
   font-weight: 650;
 }
 
@@ -1551,19 +1567,19 @@ a.tcc-list-item:hover .chevron {
   align-items: center;
   gap: 0.75rem;
   font-size: 0.9rem;
-  color: #d4d4d8;
+  color: var(--on-dark-muted);
 }
 
 .topbar-name {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  color: #ffffff;
+  color: var(--on-dark);
   font-weight: 600;
 }
 
 .topbar-name .avatar {
-  background: #ffffff;
+  background: var(--on-dark);
   width: 30px;
   height: 30px;
   font-size: 0.72rem;
@@ -1577,13 +1593,13 @@ a.tcc-list-item:hover .chevron {
   min-height: 36px;
   padding: 0.35rem 0.85rem;
   background: transparent;
-  color: #d4d4d8;
+  color: var(--on-dark-muted);
   border-color: rgba(212, 212, 216, 0.3);
 }
 
 .topbar button.secondary:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  color: var(--on-dark);
   border-color: rgba(212, 212, 216, 0.6);
 }
 
@@ -1603,7 +1619,7 @@ a.tcc-list-item:hover .chevron {
   padding: 0.3rem 2rem 0.3rem 0.7rem;
   font-size: 0.85rem;
   background-color: var(--graphite-2);
-  color: #ffffff;
+  color: var(--on-dark);
   border-color: rgba(212, 212, 216, 0.3);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d4d4d8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
@@ -1648,7 +1664,7 @@ a.tcc-list-item:hover .chevron {
   margin-bottom: 1.75rem;
   padding: 0.3rem;
   border-radius: 12px;
-  background: #e9e9ec;
+  background: var(--surface-hover);
 }
 
 .nav-tabs a {
@@ -1876,14 +1892,14 @@ a.tcc-list-item:hover .chevron {
 .notice {
   display: block;
   background: var(--info-bg);
-  border-color: #d3d9f5;
-  color: #26357f;
+  border-color: var(--info-line);
+  color: var(--info-strong);
 }
 
 .notice.warning {
   background: var(--danger-bg);
-  border-color: #f2c9c3;
-  color: #8f2a22;
+  border-color: var(--danger-line);
+  color: var(--danger-strong);
 }
 
 /* Defesa */
@@ -1977,13 +1993,13 @@ button.bell-button {
   padding: 0;
   border-radius: 10px;
   background: transparent;
-  color: #d4d4d8;
+  color: var(--on-dark-muted);
 }
 
 button.bell-button:hover,
 button.bell-button[aria-expanded='true'] {
   background: var(--graphite-2);
-  color: #ffffff;
+  color: var(--on-dark);
 }
 
 .bell-count {
@@ -1995,7 +2011,7 @@ button.bell-button[aria-expanded='true'] {
   padding: 0 4px;
   border-radius: 9px;
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 18px;
@@ -2179,7 +2195,7 @@ a.button-link {
   padding: 0.55rem 1.1rem;
   border-radius: 10px;
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
   font-weight: 600;
   font-size: 0.92rem;
   text-decoration: none;
@@ -2187,7 +2203,7 @@ a.button-link {
 
 a.button-link:hover {
   background: var(--primary-strong);
-  color: #ffffff;
+  color: var(--on-dark);
 }
 
 @media (max-width: 600px) {
@@ -2262,7 +2278,7 @@ a.button-link:hover {
 
 .auth-brand .brand-mark {
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-dark);
 }
 
 .auth-card h1 {
@@ -2308,7 +2324,7 @@ button.auth-submit {
 }
 
 button.auth-submit:focus-visible {
-  outline: 2px solid #ffffff;
+  outline: 2px solid var(--on-dark);
   outline-offset: 3px;
 }
 
@@ -2374,7 +2390,7 @@ button.auth-submit:focus-visible {
   align-items: center;
   justify-content: center;
   background: var(--graphite);
-  color: #d4d4d8;
+  color: var(--on-dark-muted);
   font-size: 0.95rem;
 }
 
@@ -2456,4 +2472,177 @@ button.auth-submit:focus-visible {
 
 .row-inactive .avatar {
   opacity: 0.55;
+}
+
+/* ==========================================================================
+   Etapa 4: menu da conta no celular, banca, reagendar, estados vazios
+   ========================================================================== */
+
+.account-menu {
+  display: none;
+  position: relative;
+}
+
+.account-toggle {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  min-height: 40px;
+  min-width: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-toggle:focus-visible {
+  outline: 2px solid var(--on-dark);
+  outline-offset: 2px;
+}
+
+.account-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 220px;
+  max-width: calc(100vw - 2rem);
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.account-panel strong {
+  color: var(--ink);
+}
+
+.account-panel .muted {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.topbar-role-chip {
+  align-self: flex-start;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--primary-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.topbar .account-panel button.secondary {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+@media (max-width: 760px) {
+  .account-menu {
+    display: block;
+  }
+
+  .topbar-logout {
+    display: none;
+  }
+
+  /* Abas que não cabem: rolam de lado, com a borda indicando que há mais */
+  .nav-tabs {
+    width: auto;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 0;
+    padding: 0.3rem 1rem;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(to right, transparent 0, #000 1rem, #000 calc(100% - 1.5rem), transparent 100%);
+  }
+}
+
+.board-counter {
+  margin: 0 0 0.6rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.board-counter.is-off {
+  color: var(--warning);
+}
+
+.checkbox-list input:disabled + * ,
+.checkbox-list label:has(input:disabled) {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.defense-reschedule {
+  margin-top: 1rem;
+}
+
+.card-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.card-collapsed h3 {
+  margin: 0;
+}
+
+.empty p {
+  margin: 0;
+}
+
+/* Carregando: um esqueleto do cartão em vez de só o texto */
+.skeleton-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.skeleton-line {
+  display: block;
+  height: 0.85rem;
+  width: 60%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--line) 0%, var(--surface-sunk) 50%, var(--line) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line.wide {
+  width: 85%;
+  height: 1.1rem;
+}
+
+.skeleton-line.short {
+  width: 35%;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line {
+    animation: none;
+  }
 }
