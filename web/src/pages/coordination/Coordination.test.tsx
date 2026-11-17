@@ -41,7 +41,6 @@ describe('coordenação: TCCs', () => {
     );
 
     expect(await screen.findByRole('link', { name: /Detecção de fraudes/ })).toHaveAttribute('href', '/coordination/tcc/t1');
-    expect(screen.getByRole('link', { name: 'Prazos' })).toBeInTheDocument();
 
     expect(screen.getByText('2 TCCs')).toBeInTheDocument();
     expect(calls[0].params).toMatchObject({ as: 'COORDINATION', page: 1, perPage: 20 });

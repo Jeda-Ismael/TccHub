@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { apiErrorMessage } from '../../api/client';
 import { useCreatePeriod, useDeletePeriod, useMilestones, usePeriods, useUpdatePeriod } from '../../api/hooks';
 import { Milestone, SubmissionPeriod } from '../../api/types';
@@ -240,7 +240,17 @@ function PeriodForm({ period, onDone }: { period: SubmissionPeriod | null; onDon
  * mesmos dados estão nas listas logo abaixo.
  */
 function Timeline({ periods, milestones, today }: { periods: SubmissionPeriod[]; milestones: Milestone[]; today: number }) {
-  if (!periods.length && !milestones.length) return null;
+  // Em telas estreitas a linha do tempo rola de lado: começa mostrando o dia de hoje
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const empty = !periods.length && !milestones.length;
+  useEffect(() => {
+    const el = scrollRef.current;
+    const marker = el?.querySelector<HTMLElement>('.timeline-today');
+    if (!el || !marker || el.scrollWidth <= el.clientWidth) return;
+    el.scrollLeft = marker.offsetLeft - el.clientWidth / 2;
+  }, [empty]);
+
+  if (empty) return null;
 
   const days = [...periods.flatMap((p) => [dayNumber(p.startDate), dayNumber(p.endDate)]), ...milestones.map((m) => dayNumber(m.dueDate))];
   const { start, end, months } = timelineWindow(days, today);
@@ -277,7 +287,7 @@ function Timeline({ periods, milestones, today }: { periods: SubmissionPeriod[];
         </ul>
       </div>
 
-      <div className="timeline-scroll">
+      <div className="timeline-scroll" ref={scrollRef}>
         <div className="timeline" aria-hidden="true">
           <div className="timeline-labels">
             <span />

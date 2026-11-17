@@ -149,3 +149,15 @@ export const FlagIcon = (p: P) => (
     <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
   </Icon>
 );
+
+export const HomeIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />
+  </Icon>
+);
+
+export const MenuIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Icon>
+);

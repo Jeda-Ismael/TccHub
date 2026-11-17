@@ -1,36 +1,11 @@
 import { ReactNode } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { CalendarIcon, DocumentIcon, SettingsIcon, TagIcon, UsersIcon } from '../../components/icons';
+import { Outlet } from 'react-router-dom';
 
-const SECTIONS = [
-  { to: '/coordination', end: true, label: 'TCCs', icon: <DocumentIcon /> },
-  { to: '/coordination/users', label: 'Usuários', icon: <UsersIcon /> },
-  { to: '/coordination/catalogs', label: 'Áreas e Palavras-chave', icon: <TagIcon /> },
-  { to: '/coordination/periods', label: 'Prazos', icon: <CalendarIcon /> },
-  { to: '/coordination/settings', label: 'Configurações', icon: <SettingsIcon /> },
-];
-
+// As seções da coordenação ficam no menu lateral do app (components/Layout.tsx)
 export function CoordinationLayout() {
-  // O detalhe de um TCC (/coordination/tcc/:id) continua marcando "TCCs"
-  const onTccDetail = useLocation().pathname.startsWith('/coordination/tcc/');
   return (
     <div className="coord">
-      <aside className="coord-rail">
-        <p className="coord-rail-title" aria-hidden="true">
-          Coordenação
-        </p>
-        <nav className="coord-nav" aria-label="Coordenação">
-          {SECTIONS.map((s) => (
-            <NavLink key={s.to} to={s.to} end={s.end} className={({ isActive }) => (isActive || (s.end && onTccDetail) ? 'active' : '')}>
-              {s.icon}
-              <span>{s.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-      <div className="coord-main">
-        <Outlet />
-      </div>
+      <Outlet />
     </div>
   );
 }
