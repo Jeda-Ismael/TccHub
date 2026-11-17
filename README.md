@@ -6,15 +6,39 @@ Papéis: **Aluno**, **Orientador**, **Avaliador** (banca) e **Coordenação**. F
 
 ## Stack
 
-- **Backend**: NestJS + TypeScript + Prisma + MySQL, autenticação JWT + Google OAuth
+> **Em migração:** o backend está sendo reescrito em **Symfony 7.4 + PostgreSQL**, rodando todo no Docker (pasta `api/`). O plano completo está em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Enquanto a migração não termina, o backend NestJS (`backend/`) continua funcionando como antes.
+
+- **Backend (novo)**: Symfony 7.4 + Doctrine + PostgreSQL 16, servido por FrankenPHP
+- **Backend (atual)**: NestJS + TypeScript + Prisma + MySQL, autenticação JWT + Google OAuth
 - **Frontend**: React (Vite) + TypeScript + React Query + React Router
 
-## Rodando localmente
+## Rodando o novo backend (Docker)
+
+Pré-requisitos: Docker (com Compose v2.10+) e `make`.
+
+```bash
+make build   # constrói as imagens (só na primeira vez ou quando o Dockerfile mudar)
+make up      # sobe API, PostgreSQL, frontend e Mailpit
+```
+
+| Serviço | Endereço |
+|---------|----------|
+| API | https://localhost/api/health (aceite o certificado local na primeira vez) |
+| Frontend | http://localhost:5173 |
+| Mailpit (e-mails de teste) | http://localhost:8025 |
+| PostgreSQL | `localhost:5432` · usuário `app` · senha `app` · banco `hubtcc` |
+| Adminer (opcional) | `docker compose --profile tools up -d adminer` → http://localhost:8080 |
+
+> As telas do frontend dependem dos endpoints que serão migrados nas próximas fases; até a Fase 2 (autenticação), use o backend NestJS para testar o sistema.
+
+Comandos úteis: `make help` lista tudo; `make qa` roda estilo, PHPStan e testes; `make sh` abre um shell na API.
+
+## Rodando o backend atual (NestJS)
 
 ### 1. Banco de dados
 
 ```bash
-docker compose up -d
+docker compose -f backend/docker-compose.yml up -d
 ```
 
 Sobe um MySQL em `localhost:3306` (usuário `root`, senha `root`, banco `hubtcc`).
@@ -62,8 +86,10 @@ Sobe em `http://localhost:5173`.
 ## Estrutura
 
 ```
+api/        Symfony (novo backend, em construção)
 backend/    NestJS (API REST, Prisma, upload de PDF em disco local)
 frontend/   React + Vite (SPA consumindo a API)
+docs/       Arquitetura e decisões
 ```
 
 Veja `backend/src` para os módulos (`auth`, `users`, `tcc`, `storage`, `thematic-areas`, `keywords`, `periods`) e `frontend/src/pages` para as telas de cada papel.
