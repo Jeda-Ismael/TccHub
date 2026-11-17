@@ -9,6 +9,7 @@ use App\Dto\UserView;
 use App\Entity\User;
 use App\Service\UserManager;
 use Lexik\Bundle\JWTAuthenticationBundle\Security\Http\Authentication\AuthenticationSuccessHandler;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
  * Login, refresh e logout são atendidos pelo firewall (config/packages/security.yaml).
  * Aqui ficam o cadastro público e o "quem sou eu".
  */
+#[OA\Tag(name: 'Autenticação')]
 final class AuthController extends AbstractController
 {
     #[Route('/auth/register', name: 'api_auth_register', methods: ['POST'])]

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use Doctrine\DBAL\Connection;
+use OpenApi\Attributes as OA;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,6 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * Verifica se a API está no ar, se fala com o banco e se consegue gravar PDFs.
  * Usado pelo `make up` e pela CI para saber que o ambiente subiu.
  */
+#[OA\Tag(name: 'Sistema')]
 final class HealthController
 {
     public function __construct(

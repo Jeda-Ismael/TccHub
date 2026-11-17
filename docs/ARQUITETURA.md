@@ -420,7 +420,7 @@ nota_final          = (média_projeto + média_apresentação) / 2    -- arredon
 
 ## 8. API
 
-Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao NestJS.
+Prefixo `/api`. JSON sem envelope. Documentação navegável (Swagger UI, NelmioApiDocBundle) em `/api/docs` e o OpenAPI 3 em `/api/docs.json`, gerados das rotas e dos DTOs. ✱ = novo · ✎ = muda em relação ao NestJS.
 
 **Auth**
 

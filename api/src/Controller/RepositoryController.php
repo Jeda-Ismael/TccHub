@@ -9,6 +9,7 @@ use App\Entity\Keyword;
 use App\Entity\Tcc;
 use App\Entity\ThematicArea;
 use App\Search\RepositorySearch;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,7 @@ use Symfony\Component\Uid\Uuid;
  * é público: dados do trabalho, nota final e o PDF final. Pareceres, notas por
  * avaliador, histórico e versões anteriores continuam restritos.
  */
+#[OA\Tag(name: 'Repositório')]
 #[Route('/repository')]
 final class RepositoryController extends AbstractController
 {

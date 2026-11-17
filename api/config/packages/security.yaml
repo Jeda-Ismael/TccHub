@@ -40,6 +40,8 @@ security:
 
     access_control:
         - { path: ^/api/health$, roles: PUBLIC_ACCESS }
+        # Documentação da API (só descreve as rotas; cada rota continua protegida)
+        - { path: ^/api/docs(\.json)?$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(login|register|refresh|logout)$, roles: PUBLIC_ACCESS }
         # Download do PDF por link assinado (o controller confere a assinatura)
         - { path: ^/api/tcc/[0-9a-f-]+/documents/\d+/download$, roles: PUBLIC_ACCESS }

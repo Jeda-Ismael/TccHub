@@ -13,6 +13,7 @@ use App\Enum\Role;
 use App\Http\Pagination;
 use App\Repository\UserRepository;
 use App\Service\UserManager;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +27,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
 
+#[OA\Tag(name: 'Usuários')]
 #[Route('/users')]
 final class UserController extends AbstractController
 {

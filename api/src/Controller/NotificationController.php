@@ -10,6 +10,7 @@ use App\Enum\NotificationType;
 use App\Enum\Role;
 use App\Repository\NotificationRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -22,6 +23,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Uid\Uuid;
 
 /** Sininho: cada usuário vê e marca só os próprios avisos. */
+#[OA\Tag(name: 'Notificações')]
 #[Route('/notifications')]
 final class NotificationController extends AbstractController
 {

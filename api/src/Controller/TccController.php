@@ -24,6 +24,7 @@ use App\Security\Voter\TccVoter;
 use App\Service\DefenseService;
 use App\Service\DocumentStorage;
 use App\Service\TccService;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -45,6 +46,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
+#[OA\Tag(name: 'TCC')]
 #[Route('/tcc')]
 final class TccController extends AbstractController
 {
