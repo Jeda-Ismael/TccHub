@@ -12,12 +12,20 @@ import {
 } from '../../api/hooks';
 import { Keyword, ThematicArea } from '../../api/types';
 import { toast } from '../../components/Toaster';
+import { PlusIcon } from '../../components/icons';
+import { CoordHead } from './CoordinationLayout';
 
 export function Catalogs() {
   return (
     <div>
-      <ThematicAreasCard />
-      <KeywordsCard />
+      <CoordHead title="Áreas e palavras-chave">
+        Os alunos escolhem destas listas ao cadastrar o TCC, e o repositório usa as mesmas para os filtros. Um item em uso pode ser renomeado, mas não
+        excluído.
+      </CoordHead>
+      <div className="catalog-grid">
+        <ThematicAreasCard />
+        <KeywordsCard />
+      </div>
     </div>
   );
 }
@@ -54,26 +62,33 @@ function ThematicAreasCard() {
   }
 
   return (
-    <div className="card">
-      <h3>Áreas temáticas</h3>
-      {areas?.map((a) => (
-        <CatalogRow
-          key={a.id}
-          name={a.name}
-          usageCount={a.tccCount ?? 0}
-          onSave={(newName) => updateArea.mutateAsync({ id: a.id, name: newName })}
-          onDelete={() => handleDelete(a)}
-        />
-      ))}
-      {!areas?.length && <p className="muted">Nenhuma área temática cadastrada.</p>}
-      {error && <p className="error-text">{error}</p>}
+    <section className="card catalog-card">
+      <div className="section-head">
+        <h2>Áreas temáticas</h2>
+        <span className="count-pill">{areas?.length ?? 0}</span>
+      </div>
+      <p className="card-sub">Grandes temas, como Inteligência Artificial ou Redes.</p>
       <form onSubmit={handleSubmit} className="add-row">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova área temática" />
-        <button type="submit" disabled={createArea.isPending}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova área temática" aria-label="Nova área temática" />
+        <button type="submit" className="secondary" disabled={createArea.isPending}>
+          <PlusIcon size={16} />
           Adicionar
         </button>
       </form>
-    </div>
+      {error && <p className="error-text">{error}</p>}
+      {!areas?.length && <p className="muted catalog-empty">Nenhuma área temática cadastrada.</p>}
+      <div className="catalog-list">
+        {areas?.map((a) => (
+          <CatalogRow
+            key={a.id}
+            name={a.name}
+            usageCount={a.tccCount ?? 0}
+            onSave={(newName) => updateArea.mutateAsync({ id: a.id, name: newName })}
+            onDelete={() => handleDelete(a)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -109,26 +124,33 @@ function KeywordsCard() {
   }
 
   return (
-    <div className="card">
-      <h3>Palavras-chave</h3>
-      {keywords?.map((k) => (
-        <CatalogRow
-          key={k.id}
-          name={k.name}
-          usageCount={k.tccCount ?? 0}
-          onSave={(newName) => updateKeyword.mutateAsync({ id: k.id, name: newName })}
-          onDelete={() => handleDelete(k)}
-        />
-      ))}
-      {!keywords?.length && <p className="muted">Nenhuma palavra-chave cadastrada.</p>}
-      {error && <p className="error-text">{error}</p>}
+    <section className="card catalog-card">
+      <div className="section-head">
+        <h2>Palavras-chave</h2>
+        <span className="count-pill">{keywords?.length ?? 0}</span>
+      </div>
+      <p className="card-sub">Termos específicos que ajudam a encontrar o trabalho no repositório.</p>
       <form onSubmit={handleSubmit} className="add-row">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova palavra-chave" />
-        <button type="submit" disabled={createKeyword.isPending}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nova palavra-chave" aria-label="Nova palavra-chave" />
+        <button type="submit" className="secondary" disabled={createKeyword.isPending}>
+          <PlusIcon size={16} />
           Adicionar
         </button>
       </form>
-    </div>
+      {error && <p className="error-text">{error}</p>}
+      {!keywords?.length && <p className="muted catalog-empty">Nenhuma palavra-chave cadastrada.</p>}
+      <div className="catalog-list">
+        {keywords?.map((k) => (
+          <CatalogRow
+            key={k.id}
+            name={k.name}
+            usageCount={k.tccCount ?? 0}
+            onSave={(newName) => updateKeyword.mutateAsync({ id: k.id, name: newName })}
+            onDelete={() => handleDelete(k)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -168,73 +190,71 @@ function CatalogRow({
 
   if (confirmingDelete) {
     return (
-      <div className="row">
-        <span className="row-main confirm-inline">
-          Excluir "{name}"?
+      <div className="catalog-row confirming">
+        <span className="catalog-name">Excluir "{name}"?</span>
+        <span className="row-actions">
+          <button
+            type="button"
+            className="danger solid small"
+            onClick={() => {
+              onDelete();
+              setConfirmingDelete(false);
+            }}
+          >
+            Confirmar
+          </button>
+          <button type="button" className="secondary small" onClick={() => setConfirmingDelete(false)}>
+            Cancelar
+          </button>
         </span>
-        <button
-          type="button"
-          className="danger"
-          onClick={() => {
-            onDelete();
-            setConfirmingDelete(false);
-          }}
-        >
-          Confirmar
-        </button>
-        <button type="button" className="secondary" onClick={() => setConfirmingDelete(false)}>
-          Cancelar
-        </button>
+      </div>
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="catalog-row editing">
+        <input className="catalog-input" value={value} onChange={(e) => setValue(e.target.value)} aria-label={`Novo nome para ${name}`} autoFocus />
+        <span className="row-actions">
+          <button type="button" className="small" onClick={handleSave} disabled={saving}>
+            Salvar
+          </button>
+          <button
+            type="button"
+            className="secondary small"
+            onClick={() => {
+              setValue(name);
+              setEditError(null);
+              setEditing(false);
+            }}
+            disabled={saving}
+          >
+            Cancelar
+          </button>
+        </span>
+        {editError && <p className="error-text row-error">{editError}</p>}
       </div>
     );
   }
 
   return (
-    <div className="row">
-      <div className="row-line">
-        {editing ? (
-          <input className="row-main" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
-        ) : (
-          <span className="row-main">
-            {name} {usageCount > 0 && <span className="muted">· usado em {usageCount} TCC(s)</span>}
-          </span>
-        )}
-        {editing ? (
-          <>
-            <button type="button" onClick={handleSave} disabled={saving}>
-              Salvar
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                setValue(name);
-                setEditError(null);
-                setEditing(false);
-              }}
-              disabled={saving}
-            >
-              Cancelar
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" className="secondary" onClick={() => setEditing(true)}>
-              Editar
-            </button>
-            <button
-              type="button"
-              className="danger"
-              onClick={() => setConfirmingDelete(true)}
-              disabled={usageCount > 0}
-              title={usageCount > 0 ? 'Não é possível excluir: em uso por TCC(s)' : undefined}
-            >
-              Excluir
-            </button>
-          </>
-        )}
-      </div>
-      {editError && <p className="error-text row-error">{editError}</p>}
+    <div className="catalog-row">
+      <span className="catalog-name">{name}</span>
+      <span className={usageCount > 0 ? 'usage-pill used' : 'usage-pill'}>{usageCount === 0 ? 'Sem uso' : usageCount === 1 ? '1 TCC' : `${usageCount} TCCs`}</span>
+      <span className="row-actions">
+        <button type="button" className="secondary small" onClick={() => setEditing(true)}>
+          Editar
+        </button>
+        <button
+          type="button"
+          className="ghost-danger small"
+          onClick={() => setConfirmingDelete(true)}
+          disabled={usageCount > 0}
+          title={usageCount > 0 ? 'Não é possível excluir: em uso por TCC(s)' : undefined}
+        >
+          Excluir
+        </button>
+      </span>
     </div>
   );
 }

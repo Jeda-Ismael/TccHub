@@ -103,6 +103,7 @@ describe('cronograma', () => {
     const user = userEvent.setup();
 
     expect(await screen.findByText('Próxima')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Nova etapa' }));
     await user.type(screen.getByLabelText('Nome (ex: Qualificação)'), 'Entrega do pôster');
     await user.type(screen.getByLabelText('Data limite'), '2026-12-20');
     await user.click(screen.getByRole('button', { name: 'Criar etapa' }));
