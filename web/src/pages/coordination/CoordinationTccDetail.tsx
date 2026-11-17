@@ -9,6 +9,8 @@ import { PublicationCard } from '../../components/PublicationCard';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
+import { toast } from '../../components/Toaster';
+import { MeetingsCard } from '../../components/MeetingsCard';
 
 export function CoordinationTccDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +23,7 @@ export function CoordinationTccDetail() {
       <PublicationCard tcc={tcc} />
       <DefenseSection tcc={tcc} />
       {tcc.permissions.manageBoard ? <BoardForm tcc={tcc} /> : <BoardList board={tcc.board} />}
+      <MeetingsCard tcc={tcc} />
       <StatusHistoryTimeline entries={tcc.statusHistory} />
     </div>
   );
@@ -32,6 +35,7 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
   const assignBoard = useAssignBoard(tcc.id);
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     setSelected(tcc.board.map((m) => m.evaluator.id));
@@ -39,6 +43,13 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
 
   // O orientador não pode avaliar o próprio orientando
   const candidates = evaluators?.filter((e) => e.id !== tcc.advisor?.id) ?? [];
+  const term = filter.trim().toLocaleLowerCase('pt-BR');
+  // Quem já está escolhido continua visível mesmo fora da busca
+  const visible = term
+    ? candidates.filter((e) => selected.includes(e.id) || `${e.name} ${e.email}`.toLocaleLowerCase('pt-BR').includes(term))
+    : candidates;
+  const max = settings?.boardMaxSize;
+  const min = settings?.boardMinSize;
   const verdictOf = (evaluatorId: string) => tcc.board.find((m) => m.evaluator.id === evaluatorId);
 
   async function handleSubmit(e: FormEvent) {
@@ -46,7 +57,7 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
     setMessage(null);
     try {
       await assignBoard.mutateAsync(selected);
-      setMessage({ text: 'Banca atualizada.', error: false });
+      toast('Banca atualizada.');
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível atualizar a banca.'), error: true });
     }
@@ -62,14 +73,34 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
         </p>
       )}
       <form onSubmit={handleSubmit}>
+        {candidates.length > 6 && (
+          <div className="field">
+            <label htmlFor="board-filter" className="visually-hidden">
+              Buscar avaliador
+            </label>
+            <input
+              id="board-filter"
+              type="search"
+              placeholder="Buscar avaliador por nome ou e-mail"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+        )}
+        {max !== undefined && (
+          <p className={`board-counter${min !== undefined && (selected.length < min || selected.length > max) ? ' is-off' : ''}`} aria-live="polite">
+            {selected.length} de {max} escolhidos
+          </p>
+        )}
         <div className="checkbox-list stacked">
-          {candidates.map((evaluator) => {
+          {visible.map((evaluator) => {
             const member = verdictOf(evaluator.id);
             return (
               <label key={evaluator.id}>
                 <input
                   type="checkbox"
                   checked={selected.includes(evaluator.id)}
+                  disabled={max !== undefined && !selected.includes(evaluator.id) && selected.length >= max}
                   onChange={() => setSelected((prev) => (prev.includes(evaluator.id) ? prev.filter((x) => x !== evaluator.id) : [...prev, evaluator.id]))}
                 />
                 {evaluator.name}
@@ -77,6 +108,7 @@ function BoardForm({ tcc }: { tcc: Tcc }) {
               </label>
             );
           })}
+          {candidates.length > 0 && !visible.length && <p className="muted">Nenhum avaliador com esse nome.</p>}
           {!candidates.length && <p className="muted">Nenhum usuário com papel de Avaliador. Cadastre na aba Usuários.</p>}
         </div>
         {message && (

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { Keyword, NotificationList, RepositoryFilters, RepositoryPage, RepositoryTccDetail, Role, Settings, SubmissionPeriod, Tcc, ThematicArea, User, UserSummary } from './types';
+import { AdvisingMeeting, Keyword, MeetingInput, Milestone, MilestoneInput, NotificationList, Page, RepositoryFilters, RepositoryPage, RepositoryTccDetail, Role, Settings, SubmissionPeriod, Tcc, TccStatus, ThematicArea, User, UserSummary } from './types';
 
 // --- TCC ---
 /** TCCs visíveis com um papel: os próprios, os orientados, os das bancas ou todos. */
@@ -8,6 +8,27 @@ export function useTccs(as: Role) {
   return useQuery({
     queryKey: ['tccs', as],
     queryFn: async () => (await api.get<Tcc[]>('/tcc', { params: { as } })).data,
+  });
+}
+
+export const PAGE_SIZE = 20;
+
+/** Monta a página a partir do corpo (array) e do cabeçalho X-Total-Count. */
+function toPage<T>(data: T[], headers: Record<string, unknown>, page: number, perPage: number): Page<T> {
+  const total = Number(headers['x-total-count'] ?? data.length);
+  return { items: data, total: Number.isFinite(total) ? total : data.length, page, perPage };
+}
+
+/** Lista da coordenação com busca, filtro de status e paginação feitos na API. */
+export function useTccPage(as: Role, filters: { q: string; status: TccStatus | ''; page: number }) {
+  return useQuery({
+    queryKey: ['tccs', as, 'page', filters],
+    queryFn: async () => {
+      const params = { as, page: filters.page, perPage: PAGE_SIZE, q: filters.q || undefined, status: filters.status || undefined };
+      const response = await api.get<Tcc[]>('/tcc', { params });
+      return toPage(response.data, response.headers as Record<string, unknown>, filters.page, PAGE_SIZE);
+    },
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -206,6 +227,33 @@ export function useAllUsers() {
   });
 }
 
+/** Gestão de usuários: busca, filtro de papel e paginação feitos na API (inclui desativados). */
+export function useUserPage(filters: { q: string; role: Role | ''; page: number }) {
+  return useQuery({
+    queryKey: ['users', 'page', filters],
+    queryFn: async () => {
+      const params = {
+        page: filters.page,
+        perPage: PAGE_SIZE,
+        q: filters.q || undefined,
+        role: filters.role || undefined,
+        includeInactive: filters.role ? true : undefined,
+      };
+      const response = await api.get<User[]>('/users', { params });
+      return toPage(response.data, response.headers as Record<string, unknown>, filters.page, PAGE_SIZE);
+    },
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useSetUserActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => (await api.put<User>(`/users/${id}/active`, { active })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
 export function useUpdateUserRoles() {
   const qc = useQueryClient();
   return useMutation({
@@ -296,4 +344,54 @@ export function useMarkNotificationRead() {
 
 export function useMarkAllNotificationsRead() {
   return useNotificationMutation(() => api.post('/notifications/read-all'));
+}
+
+// --- Reuniões de orientação ---
+export function useMeetings(tccId: string) {
+  return useQuery({
+    queryKey: ['meetings', tccId],
+    queryFn: async () => (await api.get<AdvisingMeeting[]>(`/tcc/${tccId}/meetings`)).data,
+  });
+}
+
+function useMeetingMutation<T>(tccId: string, fn: (input: T) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meetings', tccId] }),
+  });
+}
+
+export function useCreateMeeting(tccId: string) {
+  return useMeetingMutation(tccId, async (data: MeetingInput) => (await api.post<AdvisingMeeting>(`/tcc/${tccId}/meetings`, data)).data);
+}
+
+export function useConfirmMeeting(tccId: string) {
+  return useMeetingMutation(tccId, async (id: string) => (await api.post<AdvisingMeeting>(`/tcc/${tccId}/meetings/${id}/confirm`)).data);
+}
+
+export function useDeleteMeeting(tccId: string) {
+  return useMeetingMutation(tccId, async (id: string) => api.delete(`/tcc/${tccId}/meetings/${id}`));
+}
+
+// --- Cronograma ---
+export function useMilestones() {
+  return useQuery({ queryKey: ['milestones'], queryFn: async () => (await api.get<Milestone[]>('/milestones')).data });
+}
+
+function useMilestoneMutation<T>(fn: (input: T) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ['milestones'] }) });
+}
+
+export function useCreateMilestone() {
+  return useMilestoneMutation(async (data: MilestoneInput) => (await api.post<Milestone>('/milestones', data)).data);
+}
+
+export function useUpdateMilestone() {
+  return useMilestoneMutation(async ({ id, ...data }: MilestoneInput & { id: string }) => (await api.put<Milestone>(`/milestones/${id}`, data)).data);
+}
+
+export function useDeleteMilestone() {
+  return useMilestoneMutation(async (id: string) => api.delete(`/milestones/${id}`));
 }

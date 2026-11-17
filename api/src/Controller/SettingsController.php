@@ -8,6 +8,7 @@ use App\Dto\SettingsRequest;
 use App\Entity\Settings;
 use App\Repository\SettingsRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -15,6 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /** Configurações gerais: tamanho da banca e nota mínima. */
+#[OA\Tag(name: 'Configurações')]
 #[Route('/settings')]
 final class SettingsController extends AbstractController
 {

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { AuthProvider } from '../auth/AuthContext';
+import { Toaster } from '../components/Toaster';
 
 /**
  * Renderiza uma tela com React Query e rotas. `route` é o padrão da rota
@@ -17,6 +18,7 @@ export function renderPage(ui: ReactNode, { path = '/', route = '/', auth = fals
         <Route path={route} element={ui} />
         <Route path="*" element={<p>Outra tela</p>} />
       </Routes>
+      <Toaster />
     </MemoryRouter>
   );
 

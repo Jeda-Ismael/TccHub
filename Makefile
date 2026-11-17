@@ -11,7 +11,7 @@ COMPOSER    = $(PHP_CONT) composer
 .PHONY: help build up down restart logs ps sh composer console \
         db-create db-reset fixtures demo migration migrate \
         test-db test coverage test-coverage phpstan cs cs-fix web-test web-coverage qa \
-        prod-up prod-down prod-logs prod-user
+        prod-up prod-down prod-logs prod-user prod-backup
 
 help: ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -119,3 +119,9 @@ prod-logs: ## Logs da produção
 
 prod-user: ## Cria usuário em produção. Ex.: make prod-user c='"Carla Souza" carla@faculdade.edu.br --role=COORDINATION'
 	@$(PROD_COMP) exec php bin/console app:user:create $(c)
+
+prod-backup: ## Copia o banco e os PDFs para backups/ (guarde fora do servidor)
+	@mkdir -p backups
+	@$(PROD_COMP) exec -T database sh -c 'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"' | gzip > backups/banco-$$(date +%F-%H%M).sql.gz
+	@$(PROD_COMP) exec -T php tar czf - -C /app/var/storage . > backups/pdfs-$$(date +%F-%H%M).tar.gz
+	@ls -lh backups | tail -n 2

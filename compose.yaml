@@ -28,6 +28,22 @@ services:
         published: ${HTTP3_PORT:-443}
         protocol: udp
 
+  # Envia os e-mails da fila e roda as tarefas agendadas (lembrete de notas).
+  # Reinicia a cada hora para não acumular memória.
+  worker:
+    image: ${IMAGES_PREFIX:-}hubtcc-php
+    restart: unless-stopped
+    command: ["php", "bin/console", "messenger:consume", "async", "scheduler_default", "--time-limit=3600", "--memory-limit=256M"]
+    environment:
+      DEFAULT_URI: https://${SERVER_NAME:-localhost}:${HTTPS_PORT:-443}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-hubtcc}?serverVersion=16&charset=utf8
+    depends_on:
+      # Espera a API terminar a instalação e as migrations
+      php:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
   database:
     image: postgres:16-alpine
     restart: unless-stopped

@@ -65,7 +65,7 @@ final class TccListingQueriesTest extends KernelTestCase
         $counter = $container->get(QueryCounter::class);
         $counter->reset();
 
-        foreach ($container->get(TccRepository::class)->findVisibleAs($viewer, Role::Coordination) as $tcc) {
+        foreach ($container->get(TccRepository::class)->findVisibleAs($viewer, Role::Coordination)['items'] as $tcc) {
             $container->get(TccView::class)->present($tcc, $viewer);
         }
 

@@ -48,6 +48,9 @@ export function Login() {
             required
           />
         </div>
+        <p className="auth-forgot">
+          <Link to="/forgot-password">Esqueci minha senha</Link>
+        </p>
         {error && (
           <p className="auth-error" role="alert">
             {error}

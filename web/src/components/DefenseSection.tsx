@@ -3,6 +3,8 @@ import { apiErrorMessage } from '../api/client';
 import { useDecide, useGradeDefense, useScheduleDefense } from '../api/hooks';
 import { Defense, DefenseOutcome, Tcc } from '../api/types';
 import { formatDate, formatLongDateTime } from '../utils/dates';
+import { toast } from './Toaster';
+import { FileDownIcon } from './icons';
 
 const OUTCOME_LABELS: Record<DefenseOutcome, string> = {
   PENDING: 'Em andamento',
@@ -56,12 +58,31 @@ export function DefenseSection({ tcc }: { tcc: Tcc }) {
               <li key={d.attempt}>
                 Tentativa {d.attempt}: média {formatGrade(d.finalGrade)} · {OUTCOME_LABELS[d.outcome]}
                 {d.scheduledAt && <span className="muted"> · {formatDate(d.scheduledAt)}</span>}
+                {d.minutesUrl && (
+                  <>
+                    {' · '}
+                    <a href={d.minutesUrl} target="_blank" rel="noreferrer">
+                      ata
+                    </a>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         </details>
       )}
     </div>
+  );
+}
+
+function MinutesLink({ href }: { href: string }) {
+  return (
+    <p className="tcc-doc">
+      <a href={href} target="_blank" rel="noreferrer">
+        <FileDownIcon />
+        Baixar ata da defesa (PDF)
+      </a>
+    </p>
   );
 }
 
@@ -105,6 +126,7 @@ function DefenseGrades({ defense }: { defense: Defense }) {
           <strong>Média final {formatGrade(defense.finalGrade)}</strong>
         </p>
       )}
+      {closed && defense.minutesUrl && <MinutesLink href={defense.minutesUrl} />}
       {defense.grades.length > 0 && (
         <table className="grades-table">
           <thead>
@@ -140,16 +162,37 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
   const [location, setLocation] = useState(defense.location ?? '');
   const [meetingUrl, setMeetingUrl] = useState(defense.meetingUrl ?? '');
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  // Já agendada: o formulário fica atrás do botão "Reagendar" para não poluir a tela
+  const [open, setOpen] = useState(!defense.scheduledAt);
+
+  function reset() {
+    setScheduledAt(toInputValue(defense.scheduledAt));
+    setLocation(defense.location ?? '');
+    setMeetingUrl(defense.meetingUrl ?? '');
+    setMessage(null);
+    setOpen(false);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setMessage(null);
     try {
       await schedule.mutateAsync({ scheduledAt, location: location.trim() || undefined, meetingUrl: meetingUrl.trim() || undefined });
-      setMessage({ text: 'Defesa agendada.', error: false });
+      toast(defense.scheduledAt ? 'Defesa reagendada.' : 'Defesa agendada.');
+      if (defense.scheduledAt) setOpen(false);
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível agendar.'), error: true });
     }
+  }
+
+  if (!open) {
+    return (
+      <div className="btn-row defense-reschedule">
+        <button type="button" className="secondary" onClick={() => setOpen(true)}>
+          Reagendar
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -157,7 +200,11 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
       <h4>{defense.scheduledAt ? 'Reagendar' : 'Agendar a defesa'}</h4>
       <div className="form-group">
         <label htmlFor="defense-at">Data e hora</label>
-        <input id="defense-at" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} required />
+        <input id="defense-at" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} required aria-describedby="defense-at-preview" />
+        {/* O campo segue o idioma do navegador; aqui a data aparece sempre em português */}
+        <p id="defense-at-preview" className="field-hint" aria-live="polite">
+          {scheduledAt.length >= 16 ? formatLongDateTime(scheduledAt) : 'Escolha o dia e o horário.'}
+        </p>
       </div>
       <div className="form-group">
         <label htmlFor="defense-location">Sala (ou deixe vazio se for on-line)</label>
@@ -172,9 +219,16 @@ function ScheduleForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
           {message.text}
         </p>
       )}
-      <button type="submit" disabled={schedule.isPending}>
-        {defense.scheduledAt ? 'Salvar novo horário' : 'Agendar'}
-      </button>
+      <div className="btn-row">
+        <button type="submit" disabled={schedule.isPending}>
+          {defense.scheduledAt ? 'Salvar novo horário' : 'Agendar'}
+        </button>
+        {defense.scheduledAt && (
+          <button type="button" className="secondary" onClick={reset}>
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }
@@ -196,7 +250,7 @@ function GradeForm({ tcc, defense }: { tcc: Tcc; defense: Defense }) {
         presentationGrade: Number(presentationGrade.replace(',', '.')),
         comment: comment.trim() || undefined,
       });
-      setMessage({ text: updated.defense?.outcome === 'PENDING' ? 'Notas registradas.' : 'Notas registradas. A defesa foi encerrada.', error: false });
+      toast(updated.defense?.outcome === 'PENDING' ? 'Notas registradas.' : 'Notas registradas. A defesa foi encerrada.');
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível registrar as notas.'), error: true });
     }

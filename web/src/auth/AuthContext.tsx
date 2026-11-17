@@ -16,6 +16,8 @@ interface AuthContextValue {
   setActiveRole: (role: Role) => void;
   login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, password: string) => Promise<User>;
+  /** Troca a senha com o link do e-mail e já entra. */
+  resetPassword: (token: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -93,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: async (email, password) => startSession((await api.post<AuthResponse>('/auth/login', { email, password })).data),
       register: async (name, email, password) =>
         startSession((await api.post<AuthResponse>('/auth/register', { name, email, password })).data),
+      resetPassword: async (token, password) =>
+        startSession((await api.post<AuthResponse>('/auth/reset-password', { token, password })).data),
       logout: async () => {
         try {
           await api.post('/auth/logout');

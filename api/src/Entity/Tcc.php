@@ -189,6 +189,10 @@ class Tcc
             if (!$advisor->hasRole(Role::Advisor)) {
                 throw new DomainRuleViolation(\sprintf('%s não tem o papel de Orientador.', $advisor->getName()));
             }
+            // Quem já orienta continua, mesmo desativado; só não entra como novo orientador
+            if (!$advisor->isActive() && $advisor !== $this->advisor) {
+                throw new DomainRuleViolation(\sprintf('%s está desativado e não pode ser escolhido como orientador.', $advisor->getName()));
+            }
             if (null !== $this->findBoardMember($advisor)) {
                 throw new DomainRuleViolation('O orientador não pode fazer parte da banca do próprio orientando.');
             }
@@ -307,6 +311,9 @@ class Tcc
 
         if (!$evaluator->hasRole(Role::Evaluator)) {
             throw new DomainRuleViolation(\sprintf('%s não tem o papel de Avaliador.', $evaluator->getName()));
+        }
+        if (!$evaluator->isActive()) {
+            throw new DomainRuleViolation(\sprintf('%s está desativado e não pode entrar na banca.', $evaluator->getName()));
         }
         if ($this->isAdvisedBy($evaluator)) {
             throw new DomainRuleViolation('O orientador não pode fazer parte da banca do próprio orientando.');

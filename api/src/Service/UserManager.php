@@ -14,7 +14,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Casos de uso de contas: cadastro público, criação pela coordenação,
- * troca de papéis e exclusão.
+ * troca de papéis, desativação e exclusão.
  */
 final class UserManager
 {
@@ -58,6 +58,26 @@ final class UserManager
         $this->em->flush();
     }
 
+    /** Desativa (tira o acesso, mantém o histórico) ou reativa um usuário. */
+    public function setActive(User $user, bool $active, User $actingUser): void
+    {
+        if ($active) {
+            $user->activate();
+            $this->em->flush();
+
+            return;
+        }
+        if ($user->getId()->equals($actingUser->getId())) {
+            throw new DomainRuleViolation('Você não pode desativar o seu próprio usuário.');
+        }
+        if ($user->hasRole(Role::Coordination) && $user->isActive() && $this->users->countWithRole(Role::Coordination, onlyActive: true) <= 1) {
+            throw new DomainRuleViolation('O sistema precisa ter pelo menos um usuário ativo da Coordenação.');
+        }
+
+        $user->deactivate();
+        $this->em->flush();
+    }
+
     public function delete(User $user, User $actingUser): void
     {
         if ($user->getId()->equals($actingUser->getId())) {
@@ -71,7 +91,7 @@ final class UserManager
             $this->em->remove($user);
             $this->em->flush();
         } catch (ForeignKeyConstraintViolationException) {
-            throw new DomainRuleViolation('Não é possível excluir: este usuário tem TCCs, avaliações ou documentos vinculados.');
+            throw new DomainRuleViolation('Não é possível excluir: este usuário tem TCCs, avaliações ou documentos vinculados. Desative o usuário em vez de excluir.');
         }
     }
 

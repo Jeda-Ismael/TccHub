@@ -11,6 +11,11 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '10 minutes'
+        # "Esqueci minha senha": 3 pedidos a cada 15 minutos por IP e e-mail
+        password_reset:
+            policy: sliding_window
+            limit: 3
+            interval: '15 minutes'
 
 when@test:
     framework:

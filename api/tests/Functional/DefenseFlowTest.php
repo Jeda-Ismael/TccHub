@@ -119,6 +119,59 @@ final class DefenseFlowTest extends ApiTestCase
         self::assertCount(2, $this->json()['defense']['grades']);
     }
 
+    public function testDefenseMinutesPdfAfterTheDefenseCloses(): void
+    {
+        $id = $this->awaitingDefense();
+        $this->scheduledInThePast($id);
+        $this->request('PUT', "/api/tcc/$id/defense/grade", ['projectGrade' => 8.0, 'presentationGrade' => 9.0], $this->as($this->evaluator1));
+        // Defesa ainda aberta: sem ata
+        self::assertNull($this->json()['defense']['minutesUrl']);
+
+        $this->request('PUT', "/api/tcc/$id/defense/grade", ['projectGrade' => 7.0, 'presentationGrade' => 10.0, 'comment' => 'Boa apresentação'], $this->as($this->evaluator2));
+        $this->request('GET', "/api/tcc/$id", token: $this->as($this->student));
+        $link = $this->json()['defense']['minutesUrl'];
+        self::assertStringContainsString("/api/tcc/$id/defenses/1/minutes", $link);
+        self::assertStringContainsString('_hash=', $link);
+
+        // Abre num <a href>, sem token
+        $this->client->request('GET', $link);
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'application/pdf');
+        self::assertStringContainsString('ata-defesa-1.pdf', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+        self::assertStringStartsWith('%PDF-', (string) $this->client->getResponse()->getContent());
+
+        // Sem assinatura, ou com outra tentativa, não abre
+        $this->client->request('GET', "/api/tcc/$id/defenses/1/minutes");
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('GET', str_replace('/defenses/1/', '/defenses/2/', $link));
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testDefenseMinutesContent(): void
+    {
+        $id = $this->awaitingDefense();
+        $this->request('PUT', "/api/tcc/$id/defense", ['scheduledAt' => '2026-11-20T14:00', 'location' => 'Sala 101'], $this->as($this->advisor));
+        $this->scheduledInThePast($id);
+        $this->bothGrade($id, [8.0, 9.0], [7.0, 10.0]);
+
+        $tcc = self::getContainer()->get(\App\Repository\TccRepository::class)->find(\Symfony\Component\Uid\Uuid::fromString($id));
+        self::assertNotNull($tcc);
+        $defense = $tcc->getCurrentDefense();
+        self::assertNotNull($defense);
+        $html = self::getContainer()->get('twig')->render('pdf/defense_minutes.html.twig', [
+            'defense' => $defense,
+            'tcc' => $tcc,
+            'grades' => $defense->getGrades()->getValues(),
+            // O serviço já passa as datas no fuso da instituição; o template não pode convertê-las de volta
+            'scheduledAt' => (new \DateTimeImmutable('2026-11-20T17:00:00Z'))->setTimezone(new \DateTimeZone('America/Sao_Paulo')),
+            'generatedAt' => new \DateTimeImmutable(),
+        ]);
+
+        foreach (['Detecção de fraudes', 'Ana', 'Olga', 'Arthur', 'Alice', '8,50', '7,50', '9,50', 'aprovado(a) na defesa', 'Boa apresentação', 'Sala 101', '20 de novembro de 2026, às 14:00'] as $text) {
+            self::assertStringContainsString($text, $html);
+        }
+    }
+
     public function testBelowTheMinimumGoesToCoordinationThatAllowsANewDefense(): void
     {
         $id = $this->awaitingDefense();

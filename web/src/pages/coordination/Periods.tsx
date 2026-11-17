@@ -2,6 +2,9 @@ import { apiErrorMessage } from '../../api/client';
 import { FormEvent, useState } from 'react';
 import { useCreatePeriod, useDeletePeriod, usePeriods, useUpdatePeriod } from '../../api/hooks';
 import { SubmissionPeriod } from '../../api/types';
+import { toast } from '../../components/Toaster';
+import { formatDate } from '../../utils/dates';
+import { Milestones } from './Milestones';
 
 // A API já diz se o prazo está aberto agora (no relógio do servidor)
 function isActive(period: SubmissionPeriod) {
@@ -50,6 +53,7 @@ export function Periods() {
   async function handleDelete(p: SubmissionPeriod) {
     await deletePeriod.mutateAsync(p.id);
     setConfirmingDeleteId(null);
+    toast('Prazo excluído.');
     if (editingId === p.id) resetForm();
   }
 
@@ -62,6 +66,7 @@ export function Periods() {
       } else {
         await createPeriod.mutateAsync({ type, label, startDate, endDate });
       }
+      toast(editingId ? 'Prazo atualizado.' : 'Prazo criado.');
       resetForm();
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível salvar o prazo'));
@@ -126,11 +131,17 @@ export function Periods() {
           </div>
           <div className="form-group">
             <label htmlFor="period-start">Início</label>
-            <input id="period-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+            <input id="period-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required aria-describedby="period-start-preview" />
+            <p id="period-start-preview" className="field-hint">
+              {startDate ? formatDate(startDate) : 'dd/mm/aaaa'}
+            </p>
           </div>
           <div className="form-group">
             <label htmlFor="period-end">Fim</label>
-            <input id="period-end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+            <input id="period-end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required aria-describedby="period-end-preview" />
+            <p id="period-end-preview" className="field-hint">
+              {endDate ? formatDate(endDate) : 'dd/mm/aaaa'}
+            </p>
           </div>
           {error && (
             <p className="error-text" role="alert">
@@ -149,6 +160,8 @@ export function Periods() {
           </div>
         </form>
       </div>
+
+      <Milestones />
     </div>
   );
 }

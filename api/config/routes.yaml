@@ -24,3 +24,14 @@ api_auth_refresh:
 api_auth_logout:
     path: /api/auth/logout
     methods: [POST]
+
+# Documentação da API: Swagger UI e o OpenAPI em JSON (config/packages/nelmio_api_doc.yaml)
+api_docs_ui:
+    path: /api/docs
+    methods: [GET]
+    defaults: { _controller: nelmio_api_doc.controller.swagger_ui }
+
+api_docs_json:
+    path: /api/docs.json
+    methods: [GET]
+    defaults: { _controller: nelmio_api_doc.controller.swagger }

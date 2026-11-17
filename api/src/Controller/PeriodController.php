@@ -8,6 +8,7 @@ use App\Dto\PeriodRequest;
 use App\Entity\SubmissionPeriod;
 use App\Repository\SubmissionPeriodRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -21,6 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
 
 /** Prazos de submissão e de avaliação: leitura para todos, escrita para a coordenação. */
+#[OA\Tag(name: 'Prazos')]
 #[Route('/periods')]
 final class PeriodController extends AbstractController
 {

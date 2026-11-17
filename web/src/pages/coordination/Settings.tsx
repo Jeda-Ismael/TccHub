@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { apiErrorMessage } from '../../api/client';
 import { useSettings, useUpdateSettings } from '../../api/hooks';
 import { QueryStatus } from '../../components/QueryStatus';
+import { toast } from '../../components/Toaster';
 
 export function Settings() {
   const { data: settings, isLoading, error } = useSettings();
@@ -25,7 +26,7 @@ export function Settings() {
     setMessage(null);
     try {
       await updateSettings.mutateAsync({ boardMinSize: Number(boardMinSize), boardMaxSize: Number(boardMaxSize), passingGrade: Number(passingGrade) });
-      setMessage({ text: 'Configurações salvas.', error: false });
+      toast('Configurações salvas.');
     } catch (err) {
       setMessage({ text: apiErrorMessage(err, 'Não foi possível salvar.'), error: true });
     }

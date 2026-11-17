@@ -9,6 +9,7 @@ use App\Entity\Keyword;
 use App\Entity\ThematicArea;
 use App\Service\CatalogManager;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,6 +24,7 @@ use Symfony\Component\Uid\Uuid;
  * /api/thematic-areas e /api/keywords: leitura para qualquer logado
  * (o aluno escolhe ao cadastrar o TCC), escrita só para a coordenação.
  */
+#[OA\Tag(name: 'Áreas e palavras-chave')]
 final class CatalogController extends AbstractController
 {
     private const CATALOGS = ['thematic-areas' => ThematicArea::class, 'keywords' => Keyword::class];

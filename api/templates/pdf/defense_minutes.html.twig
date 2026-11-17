@@ -1,0 +1,84 @@
+{# Ata da defesa. O Dompdf entende CSS 2.1 simples: nada de flex ou grid. #}
+{%- set months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'] -%}
+{%- macro grade(value) -%}{{ value is null ? '—' : value|number_format(2, ',', '.') }}{%- endmacro -%}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ata da defesa - {{ tcc.title }}</title>
+<style>
+    @page { margin: 2.2cm 2cm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 10.5pt; color: #18181b; line-height: 1.45; }
+    .brand { font-size: 13pt; font-weight: bold; color: #1c1d21; border-bottom: 2px solid #ce0058; padding-bottom: 6px; margin-bottom: 18px; }
+    .brand span { color: #ce0058; }
+    h1 { font-size: 15pt; margin: 0 0 4px; }
+    .sub { color: #52525b; margin: 0 0 18px; }
+    table { width: 100%; border-collapse: collapse; margin: 0 0 16px; }
+    .info td { padding: 4px 0; vertical-align: top; }
+    .info td.label { width: 32%; color: #52525b; }
+    .grades th, .grades td { border: 1px solid #d4d4d8; padding: 6px 8px; text-align: left; }
+    .grades th { background: #f4f4f5; font-size: 9.5pt; }
+    .grades td.num, .grades th.num { text-align: right; width: 17%; }
+    .grades tr.total td { font-weight: bold; background: #fafafa; }
+    .result { padding: 10px 12px; border: 1px solid #d4d4d8; margin: 0 0 16px; }
+    .result strong { font-size: 12pt; }
+    .passed { color: #12704f; }
+    .failed { color: #b3342b; }
+    h2 { font-size: 11pt; margin: 18px 0 6px; }
+    .comment { margin: 0 0 8px; }
+    .signatures td { padding-top: 46px; width: 50%; vertical-align: top; }
+    .line { border-top: 1px solid #18181b; margin-right: 24px; padding-top: 4px; font-size: 9.5pt; }
+    .footer { position: fixed; bottom: -1.4cm; left: 0; right: 0; font-size: 8pt; color: #6b6b74; }
+</style>
+</head>
+<body>
+<div class="footer">Gerada pelo hubtcc em {{ generatedAt|date('d/m/Y \\à\\s H:i', false) }}. Notas de 0 a 10; nota final = média das médias de projeto e apresentação.</div>
+
+<div class="brand">hub<span>tcc</span></div>
+<h1>Ata de defesa de TCC</h1>
+<p class="sub">{{ defense.attempt }}ª tentativa de defesa</p>
+
+<table class="info">
+    <tr><td class="label">Título</td><td><strong>{{ tcc.title }}</strong></td></tr>
+    <tr><td class="label">Aluno(a)</td><td>{{ tcc.student.name }}</td></tr>
+    <tr><td class="label">Orientador(a)</td><td>{{ tcc.advisor ? tcc.advisor.name : '—' }}</td></tr>
+    <tr><td class="label">Data e hora</td><td>{% if scheduledAt %}{{ scheduledAt|date('d', false) }} de {{ months[scheduledAt|date('n', false) - 1] }} de {{ scheduledAt|date('Y', false) }}, às {{ scheduledAt|date('H:i', false) }}{% else %}—{% endif %}</td></tr>
+    <tr><td class="label">Local</td><td>{{ defense.location ?: (defense.meetingUrl ? 'On-line' : '—') }}</td></tr>
+</table>
+
+<table class="grades">
+    <thead>
+        <tr><th>Avaliador(a)</th><th class="num">Projeto</th><th class="num">Apresentação</th></tr>
+    </thead>
+    <tbody>
+        {% for g in grades %}
+            <tr><td>{{ g.boardMember.evaluator.name }}</td><td class="num">{{ _self.grade(g.projectGrade) }}</td><td class="num">{{ _self.grade(g.presentationGrade) }}</td></tr>
+        {% endfor %}
+        <tr class="total"><td>Média</td><td class="num">{{ _self.grade(defense.projectAverage) }}</td><td class="num">{{ _self.grade(defense.presentationAverage) }}</td></tr>
+    </tbody>
+</table>
+
+<div class="result">
+    Nota final: <strong>{{ _self.grade(defense.finalGrade) }}</strong> ·
+    Resultado:
+    {% if defense.outcome.value == 'PASSED' %}<strong class="passed">aprovado(a) na defesa</strong>{% else %}<strong class="failed">abaixo da nota mínima</strong>{% endif %}
+</div>
+
+{% set comments = grades|filter(g => g.comment) %}
+{% if comments|length %}
+    <h2>Observações da banca</h2>
+    {% for g in comments %}
+        <p class="comment"><strong>{{ g.boardMember.evaluator.name }}:</strong> {{ g.comment }}</p>
+    {% endfor %}
+{% endif %}
+
+<table class="signatures">
+    <tr>
+        {% for g in grades %}
+            <td><div class="line">{{ g.boardMember.evaluator.name }}</div></td>
+            {% if loop.index is divisible by(2) and not loop.last %}</tr><tr>{% endif %}
+        {% endfor %}
+    </tr>
+</table>
+</body>
+</html>

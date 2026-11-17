@@ -7,6 +7,7 @@ import { formatDateTime, formatLongDateTime } from '../utils/dates';
 import { Defense, Tcc } from '../api/types';
 import { makeTcc, perms } from '../test/fixtures';
 import { mockApi } from '../test/mockApi';
+import { Toaster } from './Toaster';
 
 function defense(overrides: Partial<Defense> = {}): Defense {
   return {
@@ -27,6 +28,8 @@ function defense(overrides: Partial<Defense> = {}): Defense {
 }
 
 function renderSection(tcc: Tcc) {
+  // Os avisos ficam num container à parte, para não contar como conteúdo da seção
+  render(<Toaster />);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -123,5 +126,41 @@ describe('seção da defesa', () => {
     await user.click(screen.getByRole('button', { name: 'Agendar' }));
 
     expect(JSON.parse(calls[0].data)).toEqual({ scheduledAt: '2026-11-20T14:00', location: 'Sala 101' });
+  });
+
+  it('reagendar fica atrás de um botão e pode ser cancelado', async () => {
+    const tcc = makeTcc({ status: 'AWAITING_DEFENSE', defense: defense({ hasStarted: false }), permissions: perms({ scheduleDefense: true }) });
+    const calls = mockApi(() => ({ status: 200, data: tcc }));
+    renderSection(tcc);
+    const user = userEvent.setup();
+
+    expect(screen.queryByLabelText('Data e hora')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reagendar' }));
+    await user.clear(screen.getByLabelText(/Sala/));
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByLabelText(/Sala/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reagendar' }));
+    expect(screen.getByLabelText(/Sala/)).toHaveValue('Sala 101');
+    await user.clear(screen.getByLabelText(/Sala/));
+    await user.type(screen.getByLabelText(/Sala/), 'Auditório');
+    await user.click(screen.getByRole('button', { name: 'Salvar novo horário' }));
+
+    expect(JSON.parse(calls[0].data)).toMatchObject({ location: 'Auditório' });
+    expect(await screen.findByText('Defesa reagendada.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reagendar' })).toBeInTheDocument();
+  });
+
+  it('com a defesa encerrada, oferece a ata em PDF', () => {
+    renderSection(
+      makeTcc({
+        status: 'APPROVED',
+        defense: defense({ outcome: 'PASSED', finalGrade: 8.5, projectAverage: 8, presentationAverage: 9, minutesUrl: '/api/tcc/t1/defenses/2/minutes?_hash=x' }),
+        previousDefenses: [{ attempt: 1, scheduledAt: null, finalGrade: 5, outcome: 'FAILED', minutesUrl: '/api/tcc/t1/defenses/1/minutes?_hash=y' }],
+      }),
+    );
+
+    expect(screen.getByRole('link', { name: 'Baixar ata da defesa (PDF)' })).toHaveAttribute('href', '/api/tcc/t1/defenses/2/minutes?_hash=x');
+    expect(screen.getByRole('link', { name: 'ata' })).toHaveAttribute('href', '/api/tcc/t1/defenses/1/minutes?_hash=y');
   });
 });

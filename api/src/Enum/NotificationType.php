@@ -22,4 +22,6 @@ enum NotificationType: string
     case PublicationWithdrawn = 'PUBLICATION_WITHDRAWN';
     case TccPublished = 'TCC_PUBLISHED';
     case TccUnpublished = 'TCC_UNPUBLISHED';
+    case MeetingRecorded = 'MEETING_RECORDED';
+    case MeetingConfirmed = 'MEETING_CONFIRMED';
 }

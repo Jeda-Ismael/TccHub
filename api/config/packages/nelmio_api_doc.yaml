@@ -1,0 +1,75 @@
+# Documentação da API (OpenAPI 3), gerada das rotas, dos DTOs de entrada
+# (MapRequestPayload/MapQueryParameter) e dos atributos #[OA\...] dos controllers.
+# Swagger UI em /api/docs e o JSON em /api/docs.json.
+nelmio_api_doc:
+    type_info: true
+    html_config:
+        # Swagger UI servido de public/bundles (assets:install roda no composer
+        # install): funciona sem internet, por exemplo numa apresentação.
+        # Abra pela API (https://localhost/api/docs): o Vite só repassa /api.
+        assets_mode: bundle
+    documentation:
+        info:
+            title: hubtcc API
+            description: |
+                API do sistema de cadastro e acompanhamento de TCC (Symfony + PostgreSQL).
+
+                **Como testar aqui:** faça `POST /api/auth/login` com e-mail e senha
+                (ex.: `coordenacao@hubtcc.dev` / `123456` no `make demo`), copie o
+                `accessToken` da resposta e clique em **Authorize**.
+
+                **Erros:** `{"statusCode": 4xx, "message": "..."}`. Transição de status
+                inválida volta 409; regra de negócio violada, 422.
+
+                **Paginação:** nas listas de TCCs e de usuários, `page` e `perPage`
+                (padrão 20, máximo 100). O corpo é um array e o total vai no
+                cabeçalho `X-Total-Count`.
+            version: 1.0.0
+        components:
+            securitySchemes:
+                Bearer:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: JWT
+        security:
+            - Bearer: []
+        paths:
+            /api/auth/login:
+                post:
+                    tags: [Autenticação]
+                    summary: Entra com e-mail e senha
+                    security: []
+                    requestBody:
+                        required: true
+                        content:
+                            application/json:
+                                schema:
+                                    type: object
+                                    required: [email, password]
+                                    properties:
+                                        email: { type: string, example: coordenacao@hubtcc.dev }
+                                        password: { type: string, example: '123456' }
+                    responses:
+                        '200':
+                            description: Token de acesso (15 min) e dados do usuário. O refresh token vem num cookie httpOnly.
+                        '401':
+                            description: E-mail ou senha incorretos, ou usuário desativado.
+            /api/auth/refresh:
+                post:
+                    tags: [Autenticação]
+                    summary: Renova o token de acesso usando o cookie de refresh
+                    security: []
+                    responses:
+                        '200': { description: 'Novo token de acesso.' }
+                        '401': { description: 'Cookie ausente, expirado ou usuário desativado.' }
+            /api/auth/logout:
+                post:
+                    tags: [Autenticação]
+                    summary: Sai e apaga o cookie de refresh
+                    security: []
+                    responses:
+                        '200': { description: 'Sessão encerrada.' }
+    areas:
+        default:
+            path_patterns:
+                - ^/api(?!/docs)

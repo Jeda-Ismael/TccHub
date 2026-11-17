@@ -420,7 +420,7 @@ nota_final          = (média_projeto + média_apresentação) / 2    -- arredon
 
 ## 8. API
 
-Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao NestJS.
+Prefixo `/api`. JSON sem envelope. Documentação navegável (Swagger UI, NelmioApiDocBundle) em `/api/docs` e o OpenAPI 3 em `/api/docs.json`, gerados das rotas e dos DTOs. ✱ = novo · ✎ = muda em relação ao NestJS.
 
 **Auth**
 
@@ -429,15 +429,17 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 | POST | `/auth/register` | público (cria aluno) |
 | POST | `/auth/login` ✎ | público. Retorna `accessToken` + cookie de refresh. Payload do JWT: `roles[]` |
 | POST | `/auth/refresh` ✱ · `/auth/logout` ✱ | cookie |
+| POST | `/auth/forgot-password` ✱ · `/auth/reset-password` ✱ | público. Troca de senha por link no e-mail (§9) |
 | GET | `/me` ✱ | autenticado |
 
 **Cadastros**
 
 | Método | Rota | Acesso |
 |--------|------|--------|
-| GET | `/users?role=` ✎ | autenticado. Filtra quem *tem* o papel |
+| GET | `/users?role=&q=&page=&perPage=&includeInactive=` ✎ | autenticado. Filtra quem *tem* o papel e só os ativos. Coordenação: lista todos, busca por nome/e-mail, pagina e, com `includeInactive`, vê os desativados no filtro por papel |
 | POST · DELETE `/{id}` | `/users` | Coordenação |
 | PUT | `/users/{id}/roles` ✎ (antes `PATCH …/role`) | Coordenação, body `{roles: [...]}` |
+| PUT | `/users/{id}/active` ✱ | Coordenação, body `{active}`. Desativar tira o acesso na hora e mantém o histórico |
 | CRUD | `/thematic-areas`, `/keywords`, `/periods` | leitura: todos · escrita: Coordenação |
 | GET · PUT | `/settings` ✱ | leitura: todos · escrita: Coordenação |
 
@@ -445,7 +447,7 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 
 | Método | Rota | Acesso |
 |--------|------|--------|
-| GET | `/tcc?as=&status=&page=` ✎ | autenticado. `as` = papel ativo |
+| GET | `/tcc?as=&status=&q=&page=&perPage=` ✎ | autenticado. `as` = papel ativo; `q` busca no título e nos nomes do aluno e do orientador |
 | POST | `/tcc` | Aluno |
 | GET · PATCH | `/tcc/{id}` | `TCC_VIEW` / `TCC_EDIT` |
 | POST | `/tcc/{id}/document` | `TCC_UPLOAD` |
@@ -472,17 +474,20 @@ Prefixo `/api`. JSON sem envelope. ✱ = novo · ✎ = muda em relação ao Nest
 | GET | `/notifications/unread-count` ✱ | autenticado (usado no polling) |
 | POST | `/notifications/{id}/read` ✱ · `/notifications/read-all` ✱ | autenticado |
 
+**Paginação:** com `page` (e `perPage`, padrão 20, máximo 100), as listas de TCCs e de usuários vêm por página. O corpo continua sendo um array; o total vai no cabeçalho `X-Total-Count` (e `X-Page`, `X-Per-Page`). Sem `page`, a lista vem inteira.
+
 **Erros:** `{"statusCode": 4xx, "message": "…"}`, igual ao NestJS. Validação devolve `message: [...]`. Transição inválida do workflow vira **409** com a mensagem do guard.
 
 ---
 
 ## 9. Notificações
 
-**Hoje (Fase 6, sem e-mail):** os avisos do sininho são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Não há fila nem `worker`. Quem fez a ação não recebe aviso do que ele mesmo fez, exceto quando o aviso é uma tarefa nova para ele (`DECISION_PENDING`).
+**Sininho e e-mail:** os avisos são gravados pelo `App\Notification\Notifier` **na mesma transação da ação** (dentro do `TccLocker`): aviso e mudança são gravados juntos ou não são gravados. Cada aviso também vira um e-mail com o mesmo título e texto (`templates/email/notification.*.twig`). O Mailer só põe o e-mail na fila do Messenger (transporte Doctrine, tabela `messenger_messages`, na mesma transação); o serviço `worker` (`messenger:consume async scheduler_default`) envia, com 3 novas tentativas e fila `failed`. Usuários desativados recebem o aviso no sininho, mas não o e-mail. Quem fez a ação não recebe aviso do que ele mesmo fez, exceto quando o aviso é uma tarefa nova para ele (`DECISION_PENDING`).
 
 ```
 Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / DefenseService::schedule
         └→ Notifier::notify(type, tcc, destinatários, título, texto) → INSERT notifications (sininho)
+                                                                   → INSERT messenger_messages (e-mail) → worker → SMTP
 ```
 
 | Tipo | Quando | Para |
@@ -496,7 +501,7 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 | `DEFENSE_SCHEDULED` | Defesa agendada ou reagendada | Aluno, orientador, banca |
 | `DECISION_PENDING` | Média abaixo do mínimo | Todos com papel de coordenação, inclusive quem deu a última nota (é uma tarefa nova) |
 | `TCC_APPROVED` / `TCC_REJECTED` | Estado final | Aluno, orientador |
-| `GRADES_PENDING` | Horário da defesa chegou | *Adiado (precisa do agendador, entra com o e-mail)* |
+| `GRADES_PENDING` | Horário da defesa chegou (agendador a cada 15 min, `src/Schedule.php`) | Quem da banca ainda não lançou nota. Uma vez por defesa; reagendar vale de novo |
 | `PUBLICATION_REQUESTED` / `PUBLICATION_WITHDRAWN` | Aluno autorizou / retirou a autorização de um TCC publicado | Coordenação |
 | `TCC_PUBLISHED` / `TCC_UNPUBLISHED` | Coordenação publicou / tirou do repositório | Aluno |
 
@@ -504,7 +509,7 @@ Workflow completed (TccNotificationSubscriber) / TccService::assignBoard / Defen
 
 **Frontend:** `components/NotificationBell.tsx` no topo. O contador é consultado a cada 30 s; quando aumenta, as telas de TCC abertas recarregam.
 
-**Depois (e-mail, no backlog):** o `Notifier` passa também a despachar uma mensagem para a fila do Messenger (transporte Doctrine), consumida pelo serviço `worker`, que envia o e-mail com o mesmo título e texto. O lembrete `GRADES_PENDING` roda no `worker` via Symfony Scheduler.
+**Esqueci minha senha:** `POST /auth/forgot-password {email}` responde 202 sempre (não revela quem tem conta; 3 pedidos a cada 15 min por IP e e-mail) e manda um link de uso único, válido por 1 hora (só o SHA-256 do token fica no banco). `POST /auth/reset-password {token, password}` troca a senha, apaga os refresh tokens do usuário (as sessões abertas caem) e já devolve o login.
 
 
 ---
@@ -667,17 +672,16 @@ Os testes são escritos **em cada fase** e não ficam para o final. Cada fase s�
 
 **Ideias vindas de projetos de referência** (§16), em ordem sugerida:
 
-1. **Ata de defesa em PDF.** Gerada automaticamente quando a defesa fecha, com banca, notas, média, resultado e data. Fica anexada ao TCC e disponível para aluno, orientador e coordenação. *Como:* template Twig → PDF (Dompdf ou Gotenberg). Evolução: assinatura digital dos membros da banca (inspirado no gestao-tccs, IFPE).
-2. **Registro de reuniões de orientação.** O orientador registra data, assunto e encaminhamentos, e o aluno confirma. Gera um histórico de acompanhamento útil para comprovar a orientação. *Modelo:* `advising_meetings (tcc_id, held_at, topic, notes, next_steps, confirmed_by_student_at)` (inspirado no gtcc e no SIGA-TCC).
-3. **Etapas com cronograma.** A coordenação define marcos por período (ex.: projeto, qualificação, versão final) com prazos, e o aluno entrega o PDF em cada etapa, com o orientador dando parecer. *Modelo:* `milestones (period_id, name, due_date, order)` + `milestone_submissions`. Afeta o workflow: as etapas viram pré-requisito do `submit` final (inspirado no gtcc e no ls1intum).
+1. ~~**Ata de defesa em PDF.**~~ **Feito (etapa 5):** gerada na hora com Dompdf a partir de `templates/pdf/defense_minutes.html.twig` quando a defesa encerra, por link assinado (`minutesUrl` da defesa, 5 minutos) para quem vê o TCC. Falta: assinatura digital dos membros da banca (inspirado no gestao-tccs, IFPE).
+2. ~~**Registro de reuniões de orientação.**~~ **Feito (etapa 5):** `advising_meetings (tcc_id, advisor_id, held_on, summary, next_steps, confirmed_at)`. O orientador registra enquanto o TCC está em andamento (`TccVoter::RECORD_MEETING`), o aluno confirma, e quem vê o TCC vê as reuniões (`/api/tcc/{id}/meetings`). Uma reunião confirmada não pode ser apagada. Avisos `MEETING_RECORDED` e `MEETING_CONFIRMED`.
+3. **Etapas com cronograma.** *Feito em parte (etapa 5):* a coordenação define as etapas com data limite (`milestones (name, description, due_date)`, `/api/milestones`), e alunos e orientadores veem o cronograma com a próxima entrega em destaque. Falta: entrega de PDF por etapa com parecer do orientador (`milestone_submissions`) e as etapas como pré-requisito do `submit` final (inspirado no gtcc e no ls1intum).
 
 **Outros**
 
 
-- **Notificações por e-mail** (adiadas na Fase 6): serviço `worker`, fila Doctrine do Messenger, Mailpit em dev, mesmos textos do sininho, e o lembrete `GRADES_PENDING` via Scheduler (ver §9)
 - Login com Google
-- Recuperação de senha / verificação de e-mail
-- Deploy de fato num servidor (a configuração já está pronta — ver `docs/DEPLOY.md`)
+- Verificação de e-mail no cadastro
+- Deploy de fato num servidor (a configuração, o backup e o deploy automático pela CI estão prontos; falta o servidor — ver `docs/DEPLOY.md`)
 - Notificações em tempo real via Mercure
 - Armazenamento em S3/MinIO
 

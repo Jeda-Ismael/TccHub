@@ -18,11 +18,14 @@ use App\Entity\User;
 use App\Enum\Role;
 use App\Enum\TccStatus;
 use App\Exception\DomainRuleViolation;
+use App\Http\Pagination;
 use App\Repository\TccRepository;
 use App\Security\Voter\TccVoter;
+use App\Service\DefenseMinutes;
 use App\Service\DefenseService;
 use App\Service\DocumentStorage;
 use App\Service\TccService;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -44,6 +47,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
+#[OA\Tag(name: 'TCC')]
 #[Route('/tcc')]
 final class TccController extends AbstractController
 {
@@ -56,10 +60,19 @@ final class TccController extends AbstractController
     ) {
     }
 
-    /** ?as=ADVISOR escolhe o papel da listagem (padrão: o primeiro papel do usuário). */
+    /**
+     * ?as=ADVISOR escolhe o papel da listagem (padrão: o primeiro papel do usuário).
+     * Filtros opcionais: `status`, `q` (título, aluno ou orientador) e `page`/`perPage`.
+     */
     #[Route('', name: 'api_tcc_list', methods: ['GET'])]
-    public function list(#[CurrentUser] User $user, #[MapQueryParameter] ?string $as = null, #[MapQueryParameter] ?string $status = null): JsonResponse
-    {
+    public function list(
+        #[CurrentUser] User $user,
+        #[MapQueryParameter] ?string $as = null,
+        #[MapQueryParameter] ?string $status = null,
+        #[MapQueryParameter] ?string $q = null,
+        #[MapQueryParameter] ?int $page = null,
+        #[MapQueryParameter] ?int $perPage = null,
+    ): JsonResponse {
         try {
             $role = null === $as ? $user->getRoleList()[0] : Role::fromApiName($as);
             $statusFilter = null === $status ? null : TccStatus::from($status);
@@ -69,11 +82,14 @@ final class TccController extends AbstractController
         if (!$user->hasRole($role)) {
             throw $this->createAccessDeniedException();
         }
+        $pagination = Pagination::fromQuery($page, $perPage);
 
-        return $this->json(array_map(
+        $result = $this->tccs->findVisibleAs($user, $role, $statusFilter, $q, $pagination);
+
+        return Pagination::respond(array_map(
             fn (Tcc $tcc): array => $this->view->present($tcc, $user),
-            $this->tccs->findVisibleAs($user, $role, $statusFilter),
-        ));
+            $result['items'],
+        ), $result['total'], $pagination);
     }
 
     #[Route('', name: 'api_tcc_create', methods: ['POST'])]
@@ -164,6 +180,33 @@ final class TccController extends AbstractController
         $response->headers->set('Content-Type', 'application/pdf');
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $document->getOriginalName(), 'tcc-v'.$document->getVersion().'.pdf');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $response;
+    }
+
+    /**
+     * Ata da defesa em PDF, também por link assinado (sai no `minutesUrl` da
+     * defesa encerrada, só para quem pode ver o TCC).
+     */
+    #[Route('/{id}/defenses/{attempt}/minutes', name: 'api_tcc_defense_minutes', requirements: ['id' => Requirement::UUID, 'attempt' => '\\d+'], methods: ['GET'])]
+    public function defenseMinutes(string $id, int $attempt, Request $request, UriSigner $signer, DefenseMinutes $minutes): Response
+    {
+        try {
+            $signer->verify($request->getRequestUri());
+        } catch (\Throwable) {
+            throw new AccessDeniedHttpException('Link da ata inválido ou expirado. Abra o TCC de novo para gerar outro.');
+        }
+
+        $tcc = $this->tccs->find(Uuid::fromString($id)) ?? throw new NotFoundHttpException();
+        $defense = $tcc->getDefenses()->findFirst(static fn ($i, $d): bool => $d->getAttempt() === $attempt)
+            ?? throw new NotFoundHttpException();
+
+        $response = new Response($minutes->render($defense), Response::HTTP_OK, [
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+        $name = \sprintf('ata-defesa-%d.pdf', $attempt);
+        $response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $name));
 
         return $response;
     }

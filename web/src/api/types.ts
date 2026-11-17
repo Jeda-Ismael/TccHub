@@ -33,7 +33,17 @@ export interface UserSummary {
 /** Usuário como a coordenação vê (e como /me e o login devolvem). */
 export interface User extends UserSummary {
   roles: Role[];
+  /** false = desativado pela coordenação (não entra mais, histórico mantido). */
+  active?: boolean;
   createdAt: string;
+}
+
+/** Uma página de lista (o total vem no cabeçalho X-Total-Count da API). */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  perPage: number;
 }
 
 export interface AuthResponse {
@@ -91,6 +101,8 @@ export interface TccPermissions {
   decide: boolean;
   authorizePublication: boolean;
   publish: boolean;
+  /** Orientador pode registrar reunião de orientação. */
+  recordMeeting?: boolean;
 }
 
 export type DefenseOutcome = 'PENDING' | 'PASSED' | 'FAILED';
@@ -117,6 +129,8 @@ export interface Defense {
   gradedCount: number;
   boardSize: number;
   grades: DefenseGrade[];
+  /** Ata em PDF (link assinado, 5 minutos), só depois que a defesa encerra. */
+  minutesUrl?: string | null;
 }
 
 export interface PreviousDefense {
@@ -124,6 +138,7 @@ export interface PreviousDefense {
   scheduledAt: string | null;
   finalGrade: number | null;
   outcome: DefenseOutcome;
+  minutesUrl?: string | null;
 }
 
 export interface Tcc {
@@ -200,7 +215,9 @@ export type NotificationType =
   | 'PUBLICATION_REQUESTED'
   | 'PUBLICATION_WITHDRAWN'
   | 'TCC_PUBLISHED'
-  | 'TCC_UNPUBLISHED';
+  | 'TCC_UNPUBLISHED'
+  | 'MEETING_RECORDED'
+  | 'MEETING_CONFIRMED';
 
 export interface AppNotification {
   id: string;
@@ -217,6 +234,44 @@ export interface AppNotification {
 export interface NotificationList {
   items: AppNotification[];
   unreadCount: number;
+}
+
+/** Reunião de orientação: o orientador registra, o aluno confirma. */
+export interface AdvisingMeeting {
+  id: string;
+  /** AAAA-MM-DD */
+  heldOn: string;
+  summary: string;
+  nextSteps: string | null;
+  advisor: UserSummary;
+  confirmedAt: string | null;
+  createdAt: string;
+  permissions: { confirm: boolean; delete: boolean };
+}
+
+export type MilestoneStatus = 'DONE' | 'NEXT' | 'UPCOMING';
+
+/** Etapa do cronograma do TCC, definida pela coordenação. */
+export interface Milestone {
+  id: string;
+  name: string;
+  description: string | null;
+  /** AAAA-MM-DD */
+  dueDate: string;
+  /** Só na listagem. */
+  status?: MilestoneStatus;
+}
+
+export interface MeetingInput {
+  heldOn: string;
+  summary: string;
+  nextSteps?: string;
+}
+
+export interface MilestoneInput {
+  name: string;
+  description?: string;
+  dueDate: string;
 }
 
 // --- Repositório ---

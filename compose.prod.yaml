@@ -17,9 +17,27 @@ services:
       DEFAULT_URI: https://${SERVER_NAME}
       APP_SECRET: ${APP_SECRET:?Defina APP_SECRET no .env.prod}
       JWT_PASSPHRASE: ${JWT_PASSPHRASE:?Defina JWT_PASSPHRASE no .env.prod}
+      APP_FRONTEND_URL: https://${SERVER_NAME}
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      MAILER_FROM: ${MAILER_FROM:-hubtcc <nao-responda@localhost>}
     volumes:
       # Chaves do JWT geradas na primeira subida; o volume evita derrubar todas
       # as sessões a cada atualização da imagem
+      - jwt_keys:/app/config/jwt
+
+  worker:
+    # Mesma imagem da API, construída pelo serviço php
+    image: ${IMAGES_PREFIX:-}hubtcc-php-prod
+    pull_policy: never
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET:?Defina APP_SECRET no .env.prod}
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:?Defina JWT_PASSPHRASE no .env.prod}
+      APP_FRONTEND_URL: https://${SERVER_NAME}
+      # SMTP do provedor (ex.: smtp://usuario:senha@smtp.brevo.com:587). Sem ele, os e-mails são descartados
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      MAILER_FROM: ${MAILER_FROM:-hubtcc <nao-responda@localhost>}
+    volumes:
       - jwt_keys:/app/config/jwt
 
   database:

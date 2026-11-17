@@ -8,6 +8,7 @@ import { DefenseSection } from '../../components/DefenseSection';
 import { QueryStatus } from '../../components/QueryStatus';
 import { StatusHistoryTimeline } from '../../components/StatusHistoryTimeline';
 import { TccSummary } from '../../components/TccSummary';
+import { toast } from '../../components/Toaster';
 
 function nextStep(tcc: Tcc): string | null {
   const me = tcc.board.find((m) => m.isMe);
@@ -54,6 +55,7 @@ function EvaluationForm({ tcc }: { tcc: Tcc }) {
     setError(null);
     try {
       await evaluate.mutateAsync({ verdict, comment: comment.trim() || undefined });
+      toast('Parecer registrado.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível registrar o parecer.'));
     }
