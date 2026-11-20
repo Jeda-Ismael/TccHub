@@ -47,6 +47,36 @@ Rascunho → Submetido → Em avaliação pela banca ⇄ Correções solicitadas
 
 ---
 
+## Telas
+
+Prints com os dados de demonstração.
+
+**Login**
+
+![Tela de login](docs/prints/login.png)
+
+**Aluno:** acompanha em que etapa está o TCC, vê as correções pedidas pela banca e envia a nova versão do PDF.
+
+![Painel do aluno](docs/prints/aluno.png)
+
+**Orientador:** vê os orientandos e o status de cada TCC.
+
+![Painel do orientador](docs/prints/orientador.png)
+
+**Coordenação:** acompanha todos os TCCs e administra usuários, áreas, palavras-chave, prazos e configurações.
+
+![Painel da coordenação](docs/prints/coordenacao-tccs.png)
+
+**Notificações:** o sininho avisa cada pessoa do que precisa fazer.
+
+![Notificações](docs/prints/notificacoes.png)
+
+**Repositório:** os TCCs publicados, com busca e filtros por área, palavra-chave e ano.
+
+![Repositório de TCCs](docs/prints/repositorio.png)
+
+---
+
 ## Tecnologias
 
 | Parte | Tecnologia |
